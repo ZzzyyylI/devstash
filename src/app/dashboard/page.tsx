@@ -10,6 +10,10 @@ export const metadata: Metadata = {
   title: "Dashboard | DevStash",
 };
 
+// CollectionsSection reads live data from Neon — don't statically cache this
+// page at build time.
+export const dynamic = "force-dynamic";
+
 export default function DashboardPage() {
   const pinnedItems = mockItems.filter((item) => item.isPinned);
   const recentItems = [...mockItems]

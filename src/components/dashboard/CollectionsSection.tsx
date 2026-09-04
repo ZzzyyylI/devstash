@@ -1,9 +1,9 @@
-import { mockCollections } from "@/lib/mock-data";
+import { getRecentCollections } from "@/lib/db/collections";
 import { CollectionCard } from "@/components/dashboard/CollectionCard";
 
 /** Recent collections grid shown near the top of the dashboard. */
-export function CollectionsSection() {
-  const collections = mockCollections.slice(0, 6);
+export async function CollectionsSection() {
+  const collections = await getRecentCollections(6);
 
   return (
     <section>
