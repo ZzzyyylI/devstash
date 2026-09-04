@@ -2,14 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
-import { mockItemTypes } from "@/lib/mock-data";
+import { getItemTypesWithCounts } from "@/lib/db/items";
 
-export function generateStaticParams() {
-  return mockItemTypes.map((type) => ({ type: type.name.toLowerCase() }));
-}
+// Reads live data from Neon — don't statically cache it at build time.
+export const dynamic = "force-dynamic";
 
 /**
- * Placeholder target for the sidebar type links (e.g. /items/snippets). The
+ * Placeholder target for the sidebar type links (e.g. /items/snippet). The
  * real item list view is built in a later phase.
  */
 export default async function ItemsByTypePage({
@@ -18,7 +17,8 @@ export default async function ItemsByTypePage({
   params: Promise<{ type: string }>;
 }) {
   const { type } = await params;
-  const itemType = mockItemTypes.find(
+  const itemTypes = await getItemTypesWithCounts();
+  const itemType = itemTypes.find(
     (candidate) => candidate.name.toLowerCase() === type,
   );
 
@@ -35,7 +35,9 @@ export default async function ItemsByTypePage({
         <ArrowLeft className="size-4" />
         Back to dashboard
       </Link>
-      <h1 className="mt-4 text-2xl font-semibold">{itemType.name}</h1>
+      <h1 className="mt-4 text-2xl font-semibold capitalize">
+        {itemType.name}
+      </h1>
       <p className="mt-1 text-sm text-muted-foreground">
         {itemType.itemCount} items in this type. The full item list is coming in a
         later phase.

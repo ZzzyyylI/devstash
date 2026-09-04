@@ -88,6 +88,63 @@ export async function getRecentItems(limit = 10): Promise<ItemWithType[]> {
   return items.map(toItemWithType);
 }
 
+/** Display order for the sidebar's Types list (mirrors the old mock data / project spec order). */
+const TYPE_ORDER = [
+  "type_snippet",
+  "type_prompt",
+  "type_command",
+  "type_note",
+  "type_file",
+  "type_image",
+  "type_link",
+];
+
+export interface ItemTypeWithCount {
+  id: string;
+  name: string;
+  icon: string | null;
+  color: string | null;
+  itemCount: number;
+}
+
+/** System item types (plus any of the user's custom ones) with item counts, for the sidebar. */
+export async function getItemTypesWithCounts(): Promise<ItemTypeWithCount[]> {
+  const userId = await getDemoUserId();
+
+  const types = await prisma.itemType.findMany({
+    where: userId ? { OR: [{ isSystem: true }, { userId }] } : { isSystem: true },
+  });
+
+  const countByType = userId
+    ? new Map(
+        (
+          await prisma.item.groupBy({
+            by: ["typeId"],
+            where: { userId },
+            _count: { _all: true },
+          })
+        ).map((entry) => [entry.typeId, entry._count._all]),
+      )
+    : new Map<string, number>();
+
+  return types
+    .map((type) => ({
+      id: type.id,
+      name: type.name,
+      icon: type.icon,
+      color: type.color,
+      itemCount: countByType.get(type.id) ?? 0,
+    }))
+    .sort((a, b) => {
+      const orderA = TYPE_ORDER.indexOf(a.id);
+      const orderB = TYPE_ORDER.indexOf(b.id);
+      if (orderA === -1 && orderB === -1) return a.name.localeCompare(b.name);
+      if (orderA === -1) return 1;
+      if (orderB === -1) return -1;
+      return orderA - orderB;
+    });
+}
+
 export interface ItemStats {
   total: number;
   favorites: number;

@@ -5,52 +5,20 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ChevronDown,
-  Code,
-  File as FileIcon,
-  FileText,
   Folder,
-  Image as ImageIcon,
   Layers,
-  Link as LinkIcon,
   Settings,
-  Sparkles,
   Star,
-  Terminal,
-  type LucideIcon,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import {
-  mockCollections,
-  mockItemTypes,
-  mockUser,
-  type MockCollection,
-} from "@/lib/mock-data";
+import { mockUser } from "@/lib/mock-data";
+import type { ItemTypeWithCount } from "@/lib/db/items";
+import type { CollectionWithStats } from "@/lib/db/collections";
+import { FALLBACK_ICON, palette, TYPE_ICON } from "@/lib/type-presentation";
 
-/** Item type id -> icon. Kept here so the sidebar owns its own presentation. */
-const TYPE_ICONS: Record<string, LucideIcon> = {
-  type_snippet: Code,
-  type_prompt: Sparkles,
-  type_command: Terminal,
-  type_note: FileText,
-  type_file: FileIcon,
-  type_image: ImageIcon,
-  type_link: LinkIcon,
-};
-
-/** Mock hex colours mapped to Tailwind classes (no inline styles). */
-const TYPE_COLORS: Record<string, string> = {
-  "#3b82f6": "text-blue-500",
-  "#a855f7": "text-purple-500",
-  "#f97316": "text-orange-500",
-  "#eab308": "text-yellow-500",
-  "#94a3b8": "text-slate-400",
-  "#ec4899": "text-pink-500",
-  "#14b8a6": "text-teal-500",
-};
-
-function typeSlug(name: string) {
-  return name.toLowerCase();
+function capitalize(name: string) {
+  return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
 function initials(name: string) {
@@ -65,17 +33,26 @@ function initials(name: string) {
 interface SidebarProps {
   /** Icon-only rail on desktop when true. */
   collapsed: boolean;
+  /** System (and any custom) item types with live item counts, for the Types list. */
+  itemTypes: ItemTypeWithCount[];
+  /** The demo user's collections, for the Favorites/Recent lists. */
+  collections: CollectionWithStats[];
   /** Called when a nav link is followed (used to close the mobile drawer). */
   onNavigate?: () => void;
 }
 
-export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
+export function Sidebar({
+  collapsed,
+  itemTypes,
+  collections,
+  onNavigate,
+}: SidebarProps) {
   const pathname = usePathname();
   const [typesOpen, setTypesOpen] = useState(true);
   const [collectionsOpen, setCollectionsOpen] = useState(true);
 
-  const favoriteCollections = mockCollections.filter((c) => c.isFavorite);
-  const recentCollections = mockCollections.filter((c) => !c.isFavorite);
+  const favoriteCollections = collections.filter((c) => c.isFavorite);
+  const recentCollections = collections.filter((c) => !c.isFavorite);
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
@@ -97,16 +74,16 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
         />
         {typesOpen && (
           <ul className="mt-1 space-y-0.5">
-            {mockItemTypes.map((type) => {
-              const Icon = TYPE_ICONS[type.id] ?? FileText;
-              const href = `/items/${typeSlug(type.name)}`;
+            {itemTypes.map((type) => {
+              const Icon = TYPE_ICON[type.id] ?? FALLBACK_ICON;
+              const href = `/items/${type.name.toLowerCase()}`;
               const active = pathname === href;
               return (
                 <li key={type.id}>
                   <Link
                     href={href}
                     onClick={onNavigate}
-                    title={collapsed ? type.name : undefined}
+                    title={collapsed ? capitalize(type.name) : undefined}
                     className={cn(
                       "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground",
                       active && "bg-sidebar-accent text-sidebar-foreground",
@@ -114,11 +91,13 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
                     )}
                   >
                     <Icon
-                      className={cn("size-4 shrink-0", TYPE_COLORS[type.color])}
+                      className={cn("size-4 shrink-0", palette(type.color).text)}
                     />
                     {!collapsed && (
                       <>
-                        <span className="flex-1 truncate">{type.name}</span>
+                        <span className="flex-1 truncate">
+                          {capitalize(type.name)}
+                        </span>
                         <span className="text-xs text-muted-foreground">
                           {type.itemCount}
                         </span>
@@ -148,6 +127,13 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
                   showStar
                 />
                 <CollectionGroup label="Recent" collections={recentCollections} />
+                <Link
+                  href="/collections"
+                  onClick={onNavigate}
+                  className="block px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-sidebar-foreground"
+                >
+                  View all collections
+                </Link>
               </div>
             )}
           </>
@@ -213,7 +199,7 @@ function SectionHeader({ label, open, collapsed, onToggle }: SectionHeaderProps)
 
 interface CollectionGroupProps {
   label: string;
-  collections: MockCollection[];
+  collections: CollectionWithStats[];
   showStar?: boolean;
 }
 
@@ -237,9 +223,17 @@ function CollectionGroup({
               {showStar ? (
                 <Star className="size-3.5 shrink-0 fill-amber-400 text-amber-400" />
               ) : (
-                <span className="text-xs text-muted-foreground">
-                  {collection.itemCount}
-                </span>
+                <span
+                  aria-label={
+                    collection.primaryType
+                      ? `Mostly ${collection.primaryType.name}`
+                      : undefined
+                  }
+                  className={cn(
+                    "size-2 shrink-0 rounded-full",
+                    palette(collection.primaryType?.color).dot,
+                  )}
+                />
               )}
             </div>
           </li>

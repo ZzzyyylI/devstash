@@ -47,6 +47,7 @@ interface SeedItem {
 interface SeedCollection {
   name: string;
   description: string;
+  isFavorite?: boolean;
   items: SeedItem[];
 }
 
@@ -163,6 +164,7 @@ const COLLECTIONS: SeedCollection[] = [
   {
     name: "React Patterns",
     description: "Reusable React patterns and hooks",
+    isFavorite: true,
     items: [
       {
         title: "useDebounce hook",
@@ -246,6 +248,7 @@ const COLLECTIONS: SeedCollection[] = [
   {
     name: "Terminal Commands",
     description: "Useful shell commands for everyday development",
+    isFavorite: true,
     items: [
       {
         title: "Delete merged git branches",
@@ -356,6 +359,7 @@ async function main() {
       data: {
         name: collection.name,
         description: collection.description,
+        isFavorite: collection.isFavorite ?? false,
         userId: user.id,
         items: {
           create: collection.items.map((item) => ({

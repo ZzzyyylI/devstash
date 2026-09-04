@@ -14,20 +14,21 @@ Completed
 
 <!-- Goals & requirements -->
 
-Replace the dummy item data in the dashboard's main area with real data from
-the database, per `@context/features/dashboard-items-spec.md`.
+Show the stats in the main area from the data in the database instead of the
+`src/lib/mock-data.ts` file.
 
-- Replace the dummy item data displayed in the main area of the dashboard
-  (right side) with actual data from the database — both pinned and recent items —
-  now sourced from Neon via Prisma instead of `src/lib/mock-data.ts`.
-- If there are no pinned items, nothing should display there.
-- Create `src/lib/db/items.ts` with data fetching functions.
-- Fetch items directly in the server component.
-- Item card icon/border derived from the item type.
-- Display item type tags and anything else currently there (reference
-  `context/screenshots/dashboard-ui-main.png` if needed).
-- Keep the current design — layout and design are already established.
-- Update the collection stats display.
+Show the system item types in the sidebar and the actual collection data from
+the database.
+
+- Display stats pertaining to database data, keeping the current design/layout.
+- Display item types in sidebar with their icons, linking to `/items/[typename]`.
+- Add "View all collections" link under the collections list that goes to
+  `/collections`.
+- Keep the star icons for favorite collections but for recents, each
+  collection should show a colored circle based on the most-used item type in
+  that collection.
+- Create `src/lib/db/items.ts` and add the database functions. Use the
+  collections file for reference if needed.
 
 ## Notes
 
@@ -48,3 +49,4 @@ _None._
 - Seed Data — Added `bcryptjs` dependency (v3, bundled types). Rewrote `prisma/seed.ts` as an idempotent seed per `context/features/seed-spec.md`: upserts the 7 system item types (spec names/icons/colours, stable `type_*` ids), upserts demo user `demo@devstash.io` / `Demo User` (password `12345678` hashed with bcryptjs 12 rounds, `isPro: false`, `emailVerified: now`), then clears and rebuilds that user's collections/items/tags — 5 collections (React Patterns, AI Workflows, DevOps, Terminal Commands, Design Resources) and 18 items (snippets w/ `language`, prompts, `bash`/`yaml` commands + snippet, real-URL links). `scripts/test-db.ts` now fetches and prints the demo user + collections/items and asserts 5 collections / 18 items / 7 system types. Ran `npx prisma db seed`, `npm run test:db`, `npm run build`, `npm run lint` — all pass. Dashboard still reads `src/lib/mock-data.js`; wiring it to Prisma remains a follow-up.
 - Dashboard Collections — Wire to Prisma — New `src/lib/db/collections.ts` (`getRecentCollections`) fetches the demo user's 6 most-recently-updated collections directly via Prisma, including each item's type, to compute per-collection item count, the most-used type (for the card's accent border), and the distinct type list (for the icon strip). `CollectionsSection` is now an async server component calling it instead of `mockCollections`; `CollectionCard` takes the real `CollectionWithStats` shape. `type-presentation.ts`'s hex-to-Tailwind palette extended with the seeded system-type colours (they differ from the old mock hexes) and `palette()` now accepts a nullable hex. `dashboard/page.tsx` marked `export const dynamic = "force-dynamic"` so it isn't statically baked in at build time with stale data. Item lists (Pinned/Recent) still read `mockItems` — out of scope, follow-up. `StatsSection`'s collection counts also still read mock data — follow-up. Ran `npm run build`, `npm run lint` — both pass; verified rendered HTML against the live Neon-seeded data.
 - Dashboard Items — Wire to Prisma — New `src/lib/db/items.ts` (`getPinnedItems`, `getRecentItems`, `getItemStats`) fetches the demo user's items directly via Prisma, including each item's type and tags. `dashboard/page.tsx` now fetches pinned + recent (10) items itself (in parallel via `Promise.all`) and passes them to `ItemsSection`, replacing the `mockItems` filter/sort; when there are no pinned items the section renders nothing (unchanged existing `ItemsSection` behavior). `ItemRow` now takes the real `ItemWithType` shape — icon and a `CollectionCard`-style left accent border are both derived from the item's type colour via `palette()`; date formatting switched from parsing an ISO date-only string to formatting a real `Date`. Added `getCollectionStats` to `collections.ts`; `StatsSection` is now an async server component sourcing all four stat cards (total/favorite items, total/favorite collections) live via `getItemStats` + `getCollectionStats`, closing the follow-up left by the collections feature. Removed `type-presentation.ts`'s `typeTextColor` helper (mock-data-only lookup, no longer needed now that callers use `palette()` directly) along with its `mockItemTypes` import. Ran `npm run build`, `npm run lint` — both pass; verified rendered HTML against the live Neon-seeded data (18 items / 5 collections stats, type-coloured borders, no Pinned section since the seed data has no pinned items).
+- Dashboard Stats & Sidebar — Wire to Prisma — Per `context/features/stats-sidebar-spec.md` (`StatsSection` was already DB-backed from the prior feature). New `getItemTypesWithCounts()` in `src/lib/db/items.ts` fetches system (+ any custom) item types with live per-type item counts, in a fixed display order (snippet, prompt, command, note, file, image, link). `src/lib/db/collections.ts` factored its query/mapping into a shared `fetchCollectionsWithStats` helper and added `getSidebarCollections()` (all of the user's collections, unlike the capped `getRecentCollections`). `Sidebar` now takes `itemTypes`/`collections` as props instead of `mock-data.ts`, sourced by `dashboard/layout.tsx` (marked `force-dynamic`) and threaded through `DashboardShell` to both the desktop and mobile sidebars; it reuses `type-presentation.ts`'s icon/colour palette instead of its own duplicate maps (dropped `TYPE_ICONS`/`TYPE_COLORS`). `type-presentation.ts`'s palette gained a `dot` (solid `bg-*`) variant per colour. Non-favorite ("Recent") collections in the sidebar now show a colored dot keyed to their most-used item type instead of an item count; favorites keep their star. Added a "View all collections" link under the list, pointing to a new `/collections` stub page (mirrors the existing `/items/[type]` placeholder style). `/items/[type]/page.tsx` switched from `mockItemTypes` to `getItemTypesWithCounts()` (dropped `generateStaticParams`, marked `force-dynamic`) so the sidebar's DB-derived links (e.g. `/items/snippet`, singular/lowercase) resolve correctly. Also updated `prisma/seed.ts`: added `isFavorite` to `SeedCollection` and marked React Patterns and Terminal Commands as favorites (the seed previously left every collection non-favorite, so the sidebar's Favorites group had nothing to show) — re-ran `npx prisma db seed`. Ran `npm run build`, `npm run lint` — both pass; verified rendered HTML against the live Neon-seeded data (sidebar type counts sum to 18, 2 favorite + 3 recent collections, `/items/[type]` and `/collections` respond 200, unknown type 404s).
