@@ -1,0 +1,170 @@
+// DevStash database schema.
+// This is a starting point and will evolve — see context/project-overview.md.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Connection URL lives in prisma.config.ts (Prisma 7 no longer reads it here).
+}
+
+// ---------------------------------------------------------------------------
+// Auth (NextAuth v5 / Auth.js Prisma adapter models)
+// ---------------------------------------------------------------------------
+
+model User {
+  id                   String    @id @default(cuid())
+  name                 String?
+  email                String    @unique
+  emailVerified        DateTime?
+  image                String?
+  password             String?
+  isPro                Boolean   @default(false)
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+
+  accounts    Account[]
+  sessions    Session[]
+  items       Item[]
+  itemTypes   ItemType[]
+  collections Collection[]
+  tags        Tag[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// Core domain
+// ---------------------------------------------------------------------------
+
+model Item {
+  id          String  @id @default(cuid())
+  title       String
+  contentType String  @default("text") // text | file
+  content     String? // used for text types
+  fileUrl     String?
+  fileName    String?
+  fileSize    Int?
+  url         String?
+  description String?
+  isFavorite  Boolean @default(false)
+  isPinned    Boolean @default(false)
+  language    String?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  typeId String
+  type   ItemType @relation(fields: [typeId], references: [id])
+
+  collectionId String?
+  collection   Collection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+
+  tags ItemTag[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([typeId])
+  @@index([collectionId])
+  @@index([userId, updatedAt])
+}
+
+model ItemType {
+  id       String  @id @default(cuid())
+  name     String
+  icon     String?
+  color    String?
+  isSystem Boolean @default(false)
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  items Item[]
+
+  @@index([userId])
+}
+
+model Collection {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  isFavorite  Boolean @default(false)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  items Item[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Tag {
+  id     String @id @default(cuid())
+  name   String
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  items ItemTag[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model ItemTag {
+  itemId String
+  tagId  String
+
+  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([itemId, tagId])
+  @@index([tagId])
+}
