@@ -14,29 +14,26 @@ Completed
 
 <!-- Goals & requirements -->
 
-Replace the dummy collection data in the dashboard's main area with real data from
-the database, per `@context/features/dashboard-collections-spec.md`.
+Replace the dummy item data in the dashboard's main area with real data from
+the database, per `@context/features/dashboard-items-spec.md`.
 
-- Replace the dummy collection data displayed in the main area of the dashboard
-  (right side) with actual data from the database — same 6 recent-collection cards,
+- Replace the dummy item data displayed in the main area of the dashboard
+  (right side) with actual data from the database — both pinned and recent items —
   now sourced from Neon via Prisma instead of `src/lib/mock-data.ts`.
-- Do not add the items underneath the collections yet — that's a later feature.
-- Create `src/lib/db/collections.ts` with data fetching functions.
-- Fetch collections directly in the server component.
-- Collection card border color is derived from the most-used content type in that
-  collection.
-- Show small icons for all item types present in that collection.
-- Keep the current design (reference `context/screenshots/dashboard-ui-main.png`
-  if needed) — layout and design are already established.
+- If there are no pinned items, nothing should display there.
+- Create `src/lib/db/items.ts` with data fetching functions.
+- Fetch items directly in the server component.
+- Item card icon/border derived from the item type.
+- Display item type tags and anything else currently there (reference
+  `context/screenshots/dashboard-ui-main.png` if needed).
+- Keep the current design — layout and design are already established.
 - Update the collection stats display.
 
 ## Notes
 
 <!-- Any extra notes -->
 
-- `StatsSection`'s "Collections" and "Favorite collections" counts still read
-  `mockCollections` — out of scope here (spec only covered the 6-card collections
-  grid), left as a follow-up.
+_None._
 
 ## History
 
@@ -50,3 +47,4 @@ the database, per `@context/features/dashboard-collections-spec.md`.
 - Prisma + Neon PostgreSQL Setup — **Prisma 7** (pinned `7.10`, npm `latest` is the v8 RC). New Rust-free `prisma-client` generator with required `output = "../src/generated/prisma"` (gitignored); datasource `url` removed from `schema.prisma` and moved to root `prisma.config.ts` (`import "dotenv/config"` + typed `env()`). `src/lib/prisma.ts` singleton uses the mandatory `PrismaPg` driver adapter. Schema: `User`/`Account`/`Session`/`VerificationToken` (Auth.js) + `Item`/`ItemType`/`Collection`/`Tag`/`ItemTag`, with FK indexes, `Item(userId, updatedAt)` composite index, `Tag(userId, name)` unique, cascade deletes on user-owned rows + `ItemTag`, `SetNull` on `Item.collectionId`, `Restrict` on `Item.typeId`. Initial migration `20260904034818_init` created with `migrate dev` (never `db push`) and applied to the Neon dev branch. `prisma/seed.ts` (wired via `migrations.seed`) upserts 7 system item types — run with `npx prisma db seed`. `scripts/test-db.ts` (`npm run test:db`) verifies Neon connectivity and prints row counts. `build` script runs `prisma generate && next build`. Follow-ups: run `prisma migrate deploy` on prod deploy; swap dashboard mock-data imports for Prisma queries.
 - Seed Data — Added `bcryptjs` dependency (v3, bundled types). Rewrote `prisma/seed.ts` as an idempotent seed per `context/features/seed-spec.md`: upserts the 7 system item types (spec names/icons/colours, stable `type_*` ids), upserts demo user `demo@devstash.io` / `Demo User` (password `12345678` hashed with bcryptjs 12 rounds, `isPro: false`, `emailVerified: now`), then clears and rebuilds that user's collections/items/tags — 5 collections (React Patterns, AI Workflows, DevOps, Terminal Commands, Design Resources) and 18 items (snippets w/ `language`, prompts, `bash`/`yaml` commands + snippet, real-URL links). `scripts/test-db.ts` now fetches and prints the demo user + collections/items and asserts 5 collections / 18 items / 7 system types. Ran `npx prisma db seed`, `npm run test:db`, `npm run build`, `npm run lint` — all pass. Dashboard still reads `src/lib/mock-data.js`; wiring it to Prisma remains a follow-up.
 - Dashboard Collections — Wire to Prisma — New `src/lib/db/collections.ts` (`getRecentCollections`) fetches the demo user's 6 most-recently-updated collections directly via Prisma, including each item's type, to compute per-collection item count, the most-used type (for the card's accent border), and the distinct type list (for the icon strip). `CollectionsSection` is now an async server component calling it instead of `mockCollections`; `CollectionCard` takes the real `CollectionWithStats` shape. `type-presentation.ts`'s hex-to-Tailwind palette extended with the seeded system-type colours (they differ from the old mock hexes) and `palette()` now accepts a nullable hex. `dashboard/page.tsx` marked `export const dynamic = "force-dynamic"` so it isn't statically baked in at build time with stale data. Item lists (Pinned/Recent) still read `mockItems` — out of scope, follow-up. `StatsSection`'s collection counts also still read mock data — follow-up. Ran `npm run build`, `npm run lint` — both pass; verified rendered HTML against the live Neon-seeded data.
+- Dashboard Items — Wire to Prisma — New `src/lib/db/items.ts` (`getPinnedItems`, `getRecentItems`, `getItemStats`) fetches the demo user's items directly via Prisma, including each item's type and tags. `dashboard/page.tsx` now fetches pinned + recent (10) items itself (in parallel via `Promise.all`) and passes them to `ItemsSection`, replacing the `mockItems` filter/sort; when there are no pinned items the section renders nothing (unchanged existing `ItemsSection` behavior). `ItemRow` now takes the real `ItemWithType` shape — icon and a `CollectionCard`-style left accent border are both derived from the item's type colour via `palette()`; date formatting switched from parsing an ISO date-only string to formatting a real `Date`. Added `getCollectionStats` to `collections.ts`; `StatsSection` is now an async server component sourcing all four stat cards (total/favorite items, total/favorite collections) live via `getItemStats` + `getCollectionStats`, closing the follow-up left by the collections feature. Removed `type-presentation.ts`'s `typeTextColor` helper (mock-data-only lookup, no longer needed now that callers use `palette()` directly) along with its `mockItemTypes` import. Ran `npm run build`, `npm run lint` — both pass; verified rendered HTML against the live Neon-seeded data (18 items / 5 collections stats, type-coloured borders, no Pinned section since the seed data has no pinned items).

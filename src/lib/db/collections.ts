@@ -73,3 +73,24 @@ export async function getRecentCollections(
     };
   });
 }
+
+export interface CollectionStats {
+  total: number;
+  favorites: number;
+}
+
+/** Collection counts for the dashboard's stat cards. */
+export async function getCollectionStats(): Promise<CollectionStats> {
+  const user = await prisma.user.findUnique({
+    where: { email: DEMO_USER_EMAIL },
+    select: { id: true },
+  });
+  if (!user) return { total: 0, favorites: 0 };
+
+  const [total, favorites] = await Promise.all([
+    prisma.collection.count({ where: { userId: user.id } }),
+    prisma.collection.count({ where: { userId: user.id, isFavorite: true } }),
+  ]);
+
+  return { total, favorites };
+}

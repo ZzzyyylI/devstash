@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Clock, Pin } from "lucide-react";
 
-import { mockItems } from "@/lib/mock-data";
+import { getPinnedItems, getRecentItems } from "@/lib/db/items";
 import { StatsSection } from "@/components/dashboard/StatsSection";
 import { CollectionsSection } from "@/components/dashboard/CollectionsSection";
 import { ItemsSection } from "@/components/dashboard/ItemsSection";
@@ -10,15 +10,14 @@ export const metadata: Metadata = {
   title: "Dashboard | DevStash",
 };
 
-// CollectionsSection reads live data from Neon — don't statically cache this
-// page at build time.
+// This page reads live data from Neon — don't statically cache it at build time.
 export const dynamic = "force-dynamic";
 
-export default function DashboardPage() {
-  const pinnedItems = mockItems.filter((item) => item.isPinned);
-  const recentItems = [...mockItems]
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    .slice(0, 10);
+export default async function DashboardPage() {
+  const [pinnedItems, recentItems] = await Promise.all([
+    getPinnedItems(),
+    getRecentItems(10),
+  ]);
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-8">

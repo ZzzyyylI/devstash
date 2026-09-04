@@ -9,8 +9,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { mockItemTypes } from "@/lib/mock-data";
-
 /** Item type id -> lucide icon. Mirrors the sidebar's type presentation. */
 export const TYPE_ICON: Record<string, LucideIcon> = {
   type_snippet: Code,
@@ -56,10 +54,4 @@ const FALLBACK: PaletteEntry = {
 
 export function palette(hex: string | null | undefined): PaletteEntry {
   return (hex && PALETTE[hex]) || FALLBACK;
-}
-
-/** Accent text colour class for an item type, looked up by id. */
-export function typeTextColor(typeId: string): string {
-  const type = mockItemTypes.find((candidate) => candidate.id === typeId);
-  return type ? palette(type.color).text : FALLBACK.text;
 }
