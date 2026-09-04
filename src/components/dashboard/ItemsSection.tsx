@@ -1,12 +1,12 @@
 import type { LucideIcon } from "lucide-react";
 
-import type { MockItem } from "@/lib/mock-data";
+import type { ItemWithType } from "@/lib/db/items";
 import { ItemRow } from "@/components/dashboard/ItemRow";
 
 interface ItemsSectionProps {
   title: string;
   icon: LucideIcon;
-  items: MockItem[];
+  items: ItemWithType[];
 }
 
 /** A titled list of item rows (used for both Pinned and Recent). */

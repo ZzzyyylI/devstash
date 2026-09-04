@@ -1,26 +1,28 @@
 import { Pin, Star } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import type { MockItem } from "@/lib/mock-data";
-import { FALLBACK_ICON, TYPE_ICON, typeTextColor } from "@/lib/type-presentation";
+import type { ItemWithType } from "@/lib/db/items";
+import { FALLBACK_ICON, palette, TYPE_ICON } from "@/lib/type-presentation";
 
-/** Format an ISO date (YYYY-MM-DD) as e.g. "Jan 15". */
-function formatShortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
+/** Format a date as e.g. "Jan 15". */
+function formatShortDate(date: Date): string {
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 /** A compact item row used in the Pinned and Recent lists. Display only. */
-export function ItemRow({ item }: { item: MockItem }) {
-  const Icon = TYPE_ICON[item.typeId] ?? FALLBACK_ICON;
+export function ItemRow({ item }: { item: ItemWithType }) {
+  const Icon = TYPE_ICON[item.type.id] ?? FALLBACK_ICON;
+  const accent = palette(item.type.color);
 
   return (
-    <div className="flex gap-3 rounded-xl border border-border bg-card p-4">
+    <div
+      className={cn(
+        "flex gap-3 rounded-xl border border-border border-l-2 bg-card p-4",
+        accent.border,
+      )}
+    >
       <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-        <Icon className={cn("size-4", typeTextColor(item.typeId))} />
+        <Icon className={cn("size-4", accent.text)} />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
@@ -35,9 +37,11 @@ export function ItemRow({ item }: { item: MockItem }) {
             {formatShortDate(item.updatedAt)}
           </span>
         </div>
-        <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">
-          {item.description}
-        </p>
+        {item.description && (
+          <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">
+            {item.description}
+          </p>
+        )}
         {item.tags.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {item.tags.map((tag) => (
