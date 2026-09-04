@@ -23,20 +23,15 @@ export interface CollectionWithStats {
   types: CollectionItemType[];
 }
 
-/** The demo user's most recently updated collections, for the dashboard's Collections section. */
-export async function getRecentCollections(
-  limit = 6,
+/** Shared query + stat computation behind both `getRecentCollections` and `getSidebarCollections`. */
+async function fetchCollectionsWithStats(
+  userId: string,
+  take?: number,
 ): Promise<CollectionWithStats[]> {
-  const user = await prisma.user.findUnique({
-    where: { email: DEMO_USER_EMAIL },
-    select: { id: true },
-  });
-  if (!user) return [];
-
   const collections = await prisma.collection.findMany({
-    where: { userId: user.id },
+    where: { userId },
     orderBy: { updatedAt: "desc" },
-    take: limit,
+    ...(take ? { take } : {}),
     include: {
       items: {
         select: {
@@ -72,6 +67,30 @@ export async function getRecentCollections(
       types: types.map((entry) => entry.type),
     };
   });
+}
+
+/** The demo user's most recently updated collections, for the dashboard's Collections section. */
+export async function getRecentCollections(
+  limit = 6,
+): Promise<CollectionWithStats[]> {
+  const user = await prisma.user.findUnique({
+    where: { email: DEMO_USER_EMAIL },
+    select: { id: true },
+  });
+  if (!user) return [];
+
+  return fetchCollectionsWithStats(user.id, limit);
+}
+
+/** All of the demo user's collections, for the sidebar's Favorites/Recent lists. */
+export async function getSidebarCollections(): Promise<CollectionWithStats[]> {
+  const user = await prisma.user.findUnique({
+    where: { email: DEMO_USER_EMAIL },
+    select: { id: true },
+  });
+  if (!user) return [];
+
+  return fetchCollectionsWithStats(user.id);
 }
 
 export interface CollectionStats {

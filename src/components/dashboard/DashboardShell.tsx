@@ -7,12 +7,26 @@ import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { TopBar } from "@/components/dashboard/TopBar";
+import type { ItemTypeWithCount } from "@/lib/db/items";
+import type { CollectionWithStats } from "@/lib/db/collections";
+
+interface DashboardShellProps {
+  children: React.ReactNode;
+  /** System (and any custom) item types with live item counts, for the sidebar. */
+  itemTypes: ItemTypeWithCount[];
+  /** The demo user's collections, for the sidebar. */
+  collections: CollectionWithStats[];
+}
 
 /**
  * Dashboard layout shell. Owns the sidebar state: a collapsible icon rail on
  * desktop and an off-canvas drawer on mobile.
  */
-export function DashboardShell({ children }: { children: React.ReactNode }) {
+export function DashboardShell({
+  children,
+  itemTypes,
+  collections,
+}: DashboardShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -25,7 +39,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           collapsed ? "w-16" : "w-64",
         )}
       >
-        <Sidebar collapsed={collapsed} />
+        <Sidebar
+          collapsed={collapsed}
+          itemTypes={itemTypes}
+          collections={collections}
+        />
       </aside>
 
       {/* Mobile drawer */}
@@ -45,6 +63,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             </Dialog.Close>
             <Sidebar
               collapsed={false}
+              itemTypes={itemTypes}
+              collections={collections}
               onNavigate={() => setMobileOpen(false)}
             />
           </Dialog.Content>
