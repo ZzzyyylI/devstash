@@ -234,6 +234,18 @@ model ItemTag {
 - Syntax highlighting for code
 - Inspired by **Notion, Linear, Raycast**
 
+## 🎨 Design References & Wireframes
+
+Refer to the generated prototype screenshots below as a visual baseline for the dashboard UI (Layout, Sidebar, Grid Cards, Color Coding, and Item Drawer):
+
+- **Main Dashboard Layout**: `context/screenshots/dashboard-ui-main.png`
+  *(Includes collapsible sidebar, top action bar with search & quick add buttons, collection section, color-coded item cards, and user settings at bottom-left)*
+
+- **Item View / Drawer UI**: `context/screenshots/dashboard-ui-drawer.png`
+  *(Includes single-dismiss action, quick copy/favorite/pin tools, and syntax-highlighted code editor)*
+
+> **Note**: These screenshots serve as a design guide and visual anchor for AI coding tools. Implementation does not need to be a pixel-perfect replica, but should strictly mirror this layout structure and visual hierarchy.
+
 ### Layout
 
 - **Collapsible sidebar** with filters & collections
