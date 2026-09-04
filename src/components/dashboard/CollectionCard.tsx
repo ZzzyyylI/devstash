@@ -1,30 +1,20 @@
 import { Star } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { mockItems, type MockCollection } from "@/lib/mock-data";
-import {
-  FALLBACK_ICON,
-  palette,
-  TYPE_ICON,
-  typeTextColor,
-} from "@/lib/type-presentation";
+import type { CollectionWithStats } from "@/lib/db/collections";
+import { FALLBACK_ICON, palette, TYPE_ICON } from "@/lib/type-presentation";
 
 /** A single collection tile with a colour-coded accent border. Display only. */
-export function CollectionCard({ collection }: { collection: MockCollection }) {
-  // Distinct item types present in this collection, for the icon strip.
-  const typeIds = [
-    ...new Set(
-      mockItems
-        .filter((item) => item.collectionId === collection.id)
-        .map((item) => item.typeId),
-    ),
-  ];
-
+export function CollectionCard({
+  collection,
+}: {
+  collection: CollectionWithStats;
+}) {
   return (
     <div
       className={cn(
         "flex flex-col rounded-xl border border-border border-l-2 bg-card p-4",
-        palette(collection.color).border,
+        palette(collection.primaryType?.color).border,
       )}
     >
       <div className="flex items-start justify-between gap-2">
@@ -34,17 +24,22 @@ export function CollectionCard({ collection }: { collection: MockCollection }) {
         )}
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
-        {collection.itemCount} items
+        {collection.itemCount} {collection.itemCount === 1 ? "item" : "items"}
       </p>
-      <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">
-        {collection.description}
-      </p>
-      {typeIds.length > 0 && (
+      {collection.description && (
+        <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">
+          {collection.description}
+        </p>
+      )}
+      {collection.types.length > 0 && (
         <div className="mt-4 flex items-center gap-2">
-          {typeIds.map((id) => {
-            const Icon = TYPE_ICON[id] ?? FALLBACK_ICON;
+          {collection.types.map((type) => {
+            const Icon = TYPE_ICON[type.id] ?? FALLBACK_ICON;
             return (
-              <Icon key={id} className={cn("size-4", typeTextColor(id))} />
+              <Icon
+                key={type.id}
+                className={cn("size-4", palette(type.color).text)}
+              />
             );
           })}
         </div>
