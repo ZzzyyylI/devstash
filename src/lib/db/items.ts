@@ -78,7 +78,7 @@ export async function getRecentItems(limit = 10): Promise<ItemWithType[]> {
 }
 
 /** Display order for the sidebar's Types list (mirrors the old mock data / project spec order). */
-const TYPE_ORDER = [
+export const TYPE_ORDER = [
   "type_snippet",
   "type_prompt",
   "type_command",
@@ -87,6 +87,22 @@ const TYPE_ORDER = [
   "type_image",
   "type_link",
 ];
+
+/**
+ * Sort comparator for item types: known system types in `TYPE_ORDER`, then any
+ * custom types alphabetically. Shared by the sidebar and the profile page.
+ */
+export function compareTypeOrder(
+  a: { id: string; name: string },
+  b: { id: string; name: string },
+): number {
+  const orderA = TYPE_ORDER.indexOf(a.id);
+  const orderB = TYPE_ORDER.indexOf(b.id);
+  if (orderA === -1 && orderB === -1) return a.name.localeCompare(b.name);
+  if (orderA === -1) return 1;
+  if (orderB === -1) return -1;
+  return orderA - orderB;
+}
 
 export interface ItemTypeWithCount {
   id: string;
@@ -124,14 +140,7 @@ export async function getItemTypesWithCounts(): Promise<ItemTypeWithCount[]> {
       color: type.color,
       itemCount: countByType.get(type.id) ?? 0,
     }))
-    .sort((a, b) => {
-      const orderA = TYPE_ORDER.indexOf(a.id);
-      const orderB = TYPE_ORDER.indexOf(b.id);
-      if (orderA === -1 && orderB === -1) return a.name.localeCompare(b.name);
-      if (orderA === -1) return 1;
-      if (orderB === -1) return -1;
-      return orderA - orderB;
-    });
+    .sort(compareTypeOrder);
 }
 
 /** A single item type by name (case-insensitive) with its item count, for the /items/[type] placeholder page. */
