@@ -17,3 +17,13 @@ Read the following to get the full context of the project:
 - **Build**: `npm run build`
 - **Production server**: `npm run start`
 - **Lint**: `npm run lint`
+
+## Neon MCP
+
+- Org: `org-purple-cell-39466609` (Siyi)
+- Project: `devstash` — id `summer-lake-87791392`
+- Branches:
+  - `development` — id `br-patient-sunset-ayl1jjv2` — **default target for all Neon MCP operations**
+  - `production` — id `br-mute-cloud-aym5mkru` (this is the project's default/primary branch in Neon, despite the name)
+
+**Always target the `devstash` project's `development` branch for any Neon MCP tool call** (queries, migrations, schema inspection, etc.) unless I explicitly say "production" or name the production branch. Never run destructive or write operations against `production` without explicit confirmation first, even if a tool defaults to the project's primary branch.

@@ -10,6 +10,7 @@ import {
 } from "@/lib/tokens";
 import { sendVerificationEmail } from "@/lib/email";
 import { emailVerificationEnabled } from "@/lib/auth-flags";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 const TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -40,13 +41,23 @@ export async function POST(request: Request) {
     );
   }
 
+  const { email } = parsed.data;
+
+  const limit = await checkRateLimit({
+    request,
+    name: "auth:resend-verification",
+    limit: 3,
+    window: "15 m",
+    identifier: email,
+  });
+  if (!limit.success) return rateLimitResponse(limit.reset);
+
   // Verification disabled: there's nothing to resend. Keep the same always-200
   // shape so the client needs no special-casing.
   if (!emailVerificationEnabled()) {
     return NextResponse.json({ success: true });
   }
 
-  const { email } = parsed.data;
   const user = await prisma.user.findUnique({ where: { email } });
 
   if (user && !user.emailVerified) {

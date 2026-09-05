@@ -9,6 +9,7 @@ import {
   RESEND_DEBOUNCE_MS,
 } from "@/lib/tokens";
 import { sendPasswordResetEmail } from "@/lib/email";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 const TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -39,6 +40,14 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+
+  const limit = await checkRateLimit({
+    request,
+    name: "auth:forgot-password",
+    limit: 3,
+    window: "1 h",
+  });
+  if (!limit.success) return rateLimitResponse(limit.reset);
 
   const { email } = parsed.data;
   const user = await prisma.user.findUnique({ where: { email } });

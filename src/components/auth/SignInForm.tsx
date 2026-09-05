@@ -51,6 +51,12 @@ export function SignInForm({ callbackUrl }: SignInFormProps) {
       setUnverifiedEmail(parsed.data.email);
       return;
     }
+    if (result?.code === "rate_limited") {
+      setError(
+        "Too many sign-in attempts. Please wait a few minutes and try again.",
+      );
+      return;
+    }
     if (!result || result.error) {
       setError("Invalid email or password.");
       return;

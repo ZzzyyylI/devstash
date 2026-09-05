@@ -1,26 +1,39 @@
-# Current Feature
+# Current Feature: Rate Limiting for Auth
 
 <!-- Feature Name -->
 
-_None — ready for the next feature._
+Rate limiting on authentication endpoints to prevent brute force, credential stuffing, and abuse of email-sending routes.
 
 ## Status
 
 <!-- Not Started|In Progress|Completed -->
 
-Completed
+In Progress
 
 ## Goals
 
 <!-- Goals & requirements -->
 
-_None._
+- Add rate limiting to auth-related API routes using Upstash Redis + `@upstash/ratelimit` (serverless-compatible, sliding window algorithm)
+- Create reusable `src/lib/rate-limit.ts` utility: Upstash client, IP extraction from `x-forwarded-for` (Vercel) with request fallback, IP + email combination where applicable, returns `{ success, remaining, reset }`
+- Protect these endpoints:
+  - `/api/auth/callback/credentials` (login) — 5 / 15 min, key by IP + email (tricky with NextAuth credentials; may need custom sign-in handler)
+  - `/api/auth/register` — 3 / 1 hour, key by IP
+  - `/api/auth/forgot-password` — 3 / 1 hour, key by IP
+  - `/api/auth/reset-password` — 5 / 15 min, key by IP
+  - `/api/auth/resend-verification` — 3 / 15 min, key by IP + email
+- Return 429 with JSON `{ error: "Too many attempts. Please try again in X minutes." }` and a `Retry-After` header
+- Display user-friendly error messages on the frontend via toast notification
+- Add `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` env vars (+ `.env.example`)
 
 ## Notes
 
 <!-- Any extra notes -->
 
-_None._
+- Upstash free tier: 10k requests/day (sufficient for auth limiting)
+- Rate limiting must **fail open** (allow the request) if Upstash is unavailable
+- Login limiting is tricky with NextAuth credentials — may need a custom sign-in handler
+- Consider rate-limiting middleware for a cleaner implementation later
 
 ## History
 

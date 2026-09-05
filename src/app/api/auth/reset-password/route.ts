@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { resetPasswordSchema } from "@/lib/validations/auth";
 import { consumePasswordResetToken } from "@/lib/tokens";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 /**
  * POST /api/auth/reset-password  { token, password, confirmPassword }
@@ -35,6 +36,14 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+
+  const limit = await checkRateLimit({
+    request,
+    name: "auth:reset-password",
+    limit: 5,
+    window: "15 m",
+  });
+  if (!limit.success) return rateLimitResponse(limit.reset);
 
   const { token, password } = parsed.data;
 
