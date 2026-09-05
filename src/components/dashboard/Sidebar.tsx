@@ -16,6 +16,9 @@ import { mockUser } from "@/lib/mock-data";
 import type { ItemTypeWithCount } from "@/lib/db/items";
 import type { CollectionWithStats } from "@/lib/db/collections";
 import { FALLBACK_ICON, palette, TYPE_ICON } from "@/lib/type-presentation";
+import { Badge } from "@/components/ui/badge";
+
+const PRO_TYPE_NAMES = new Set(["file", "image"]);
 
 function capitalize(name: string) {
   return name.charAt(0).toUpperCase() + name.slice(1);
@@ -98,6 +101,11 @@ export function Sidebar({
                         <span className="flex-1 truncate">
                           {capitalize(type.name)}
                         </span>
+                        {PRO_TYPE_NAMES.has(type.name) && (
+                          <Badge variant="outline" className="text-[10px]">
+                            PRO
+                          </Badge>
+                        )}
                         <span className="text-xs text-muted-foreground">
                           {type.itemCount}
                         </span>
