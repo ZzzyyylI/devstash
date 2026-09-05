@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
-import { getSidebarCollections } from "@/lib/db/collections";
+import { getCollectionCount } from "@/lib/db/collections";
 
 // Reads live data from Neon — don't statically cache it at build time.
 export const dynamic = "force-dynamic";
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
  * collections list view is built in a later phase.
  */
 export default async function CollectionsPage() {
-  const collections = await getSidebarCollections();
+  const count = await getCollectionCount();
 
   return (
     <div className="mx-auto max-w-3xl p-6">
@@ -24,8 +24,7 @@ export default async function CollectionsPage() {
       </Link>
       <h1 className="mt-4 text-2xl font-semibold">Collections</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        {collections.length}{" "}
-        {collections.length === 1 ? "collection" : "collections"}. The full
+        {count} {count === 1 ? "collection" : "collections"}. The full
         collections list is coming in a later phase.
       </p>
     </div>

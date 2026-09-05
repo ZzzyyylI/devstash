@@ -1,8 +1,5 @@
 import { prisma } from "@/lib/prisma";
-
-// Auth isn't wired up yet — the dashboard shows this single demo user's data,
-// matching the seed script (see prisma/seed.ts).
-const DEMO_USER_EMAIL = "demo@devstash.io";
+import { getDemoUserId } from "@/lib/db/user";
 
 export interface ItemItemType {
   id: string;
@@ -20,14 +17,6 @@ export interface ItemWithType {
   type: ItemItemType;
   tags: string[];
   updatedAt: Date;
-}
-
-async function getDemoUserId(): Promise<string | null> {
-  const user = await prisma.user.findUnique({
-    where: { email: DEMO_USER_EMAIL },
-    select: { id: true },
-  });
-  return user?.id ?? null;
 }
 
 const ITEM_INCLUDE = {
@@ -143,6 +132,33 @@ export async function getItemTypesWithCounts(): Promise<ItemTypeWithCount[]> {
       if (orderB === -1) return -1;
       return orderA - orderB;
     });
+}
+
+/** A single item type by name (case-insensitive) with its item count, for the /items/[type] placeholder page. */
+export async function getItemTypeByName(
+  name: string,
+): Promise<ItemTypeWithCount | null> {
+  const userId = await getDemoUserId();
+
+  const type = await prisma.itemType.findFirst({
+    where: {
+      name: { equals: name, mode: "insensitive" },
+      ...(userId ? { OR: [{ isSystem: true }, { userId }] } : { isSystem: true }),
+    },
+  });
+  if (!type) return null;
+
+  const itemCount = userId
+    ? await prisma.item.count({ where: { userId, typeId: type.id } })
+    : 0;
+
+  return {
+    id: type.id,
+    name: type.name,
+    icon: type.icon,
+    color: type.color,
+    itemCount,
+  };
 }
 
 export interface ItemStats {

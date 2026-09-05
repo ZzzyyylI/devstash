@@ -1,8 +1,5 @@
 import { prisma } from "@/lib/prisma";
-
-// Auth isn't wired up yet — the dashboard shows this single demo user's data,
-// matching the seed script (see prisma/seed.ts).
-const DEMO_USER_EMAIL = "demo@devstash.io";
+import { getDemoUserId } from "@/lib/db/user";
 
 export interface CollectionItemType {
   id: string;
@@ -73,24 +70,18 @@ async function fetchCollectionsWithStats(
 export async function getRecentCollections(
   limit = 6,
 ): Promise<CollectionWithStats[]> {
-  const user = await prisma.user.findUnique({
-    where: { email: DEMO_USER_EMAIL },
-    select: { id: true },
-  });
-  if (!user) return [];
+  const userId = await getDemoUserId();
+  if (!userId) return [];
 
-  return fetchCollectionsWithStats(user.id, limit);
+  return fetchCollectionsWithStats(userId, limit);
 }
 
 /** All of the demo user's collections, for the sidebar's Favorites/Recent lists. */
 export async function getSidebarCollections(): Promise<CollectionWithStats[]> {
-  const user = await prisma.user.findUnique({
-    where: { email: DEMO_USER_EMAIL },
-    select: { id: true },
-  });
-  if (!user) return [];
+  const userId = await getDemoUserId();
+  if (!userId) return [];
 
-  return fetchCollectionsWithStats(user.id);
+  return fetchCollectionsWithStats(userId);
 }
 
 export interface CollectionStats {
@@ -100,16 +91,21 @@ export interface CollectionStats {
 
 /** Collection counts for the dashboard's stat cards. */
 export async function getCollectionStats(): Promise<CollectionStats> {
-  const user = await prisma.user.findUnique({
-    where: { email: DEMO_USER_EMAIL },
-    select: { id: true },
-  });
-  if (!user) return { total: 0, favorites: 0 };
+  const userId = await getDemoUserId();
+  if (!userId) return { total: 0, favorites: 0 };
 
   const [total, favorites] = await Promise.all([
-    prisma.collection.count({ where: { userId: user.id } }),
-    prisma.collection.count({ where: { userId: user.id, isFavorite: true } }),
+    prisma.collection.count({ where: { userId } }),
+    prisma.collection.count({ where: { userId, isFavorite: true } }),
   ]);
 
   return { total, favorites };
+}
+
+/** Just the demo user's collection count, for the /collections placeholder page. */
+export async function getCollectionCount(): Promise<number> {
+  const userId = await getDemoUserId();
+  if (!userId) return 0;
+
+  return prisma.collection.count({ where: { userId } });
 }
