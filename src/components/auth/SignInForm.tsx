@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 
+import { signInWithGitHub } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { GitHubIcon } from "@/components/auth/GitHubIcon";
@@ -169,7 +170,7 @@ export function SignInForm({ callbackUrl }: SignInFormProps) {
         disabled={pending !== null}
         onClick={() => {
           setPending("github");
-          void signIn("github", { callbackUrl });
+          void signInWithGitHub(callbackUrl);
         }}
       >
         <GitHubIcon />
