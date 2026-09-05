@@ -1,26 +1,31 @@
-# Current Feature
+# Current Feature: Item Listing — Three-Column Grid
 
 <!-- Feature Name -->
 
-_None — ready for the next feature._
+Item Listing — Three-Column Grid
 
 ## Status
 
 <!-- Not Started|In Progress|Completed -->
 
-Completed
+In Progress
 
 ## Goals
 
 <!-- Goals & requirements -->
 
-_None._
+- On the `/items/[type]` listing view, show item cards **three per row** on larger screens/viewports instead of the current two.
+- Keep the grid responsive: fewer columns on smaller screens, stepping up to three at a large breakpoint (1 col → 2 col → 3 col).
+- No layout regressions — cards, gaps, empty state, and the `max-w-6xl` container still look right at every width.
 
 ## Notes
 
 <!-- Any extra notes -->
 
-_None._
+- Only the grid in `src/app/items/[type]/page.tsx` changes: `grid gap-4 md:grid-cols-2` → add a third-column step (e.g. `grid gap-4 sm:grid-cols-2 lg:grid-cols-3`, exact breakpoints TBD during implementation).
+- `ItemCard` (`src/components/dashboard/ItemCard.tsx`) itself should not need changes — it already fills its grid cell.
+- Verify in the browser at mobile / `md` / `lg`+ widths; run `npm run test`, `npm run lint`, `npm run build`.
+- Small, self-contained UI tweak — no DB, no new deps, no `proxy.ts` change.
 
 ## History
 
