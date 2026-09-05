@@ -2,33 +2,25 @@
 
 <!-- Feature Name -->
 
-Vitest Unit Testing Setup
+_None — ready for the next feature._
 
 ## Status
 
 <!-- Not Started|In Progress|Completed -->
 
-In Progress
+Completed
 
 ## Goals
 
 <!-- Goals & requirements -->
 
-- Add Vitest for unit testing.
-- Scope tests to **server actions (`src/actions/**`) and utilities (`src/lib/**`) only** — no components, no DOM/browser testing.
-- Wire up `npm run test` / `npm run test:watch`.
-- Update the workflow in `context/ai-interaction.md` and other docs to reflect that unit tests are now part of the process.
+_None._
 
 ## Notes
 
 <!-- Any extra notes -->
 
-- Runner: Vitest 5, config in `vitest.config.mts` (`.mts` so ESM syntax loads cleanly without `"type": "module"`).
-- `node` environment, `@/*` alias mirrored from tsconfig, collects only `src/{actions,lib}/**/*.test.ts`.
-- Tests co-located as `*.test.ts` next to the source.
-- Prisma / auth are mocked (`vi.mock("@/lib/prisma")`, `vi.mock("@/auth")`); env via `vi.stubEnv`.
-- Bumped `@types/node` `^20` → `^24` (matches the Node 24 runtime; Vitest 5 peer-requires it).
-- Seeded coverage: `cn`, auth Zod schemas, `emailVerificationEnabled`, `getBaseUrl`, `palette`, `getClientIp`, verification/password-reset token helpers, `signInWithGitHub` action — 37 tests.
+_None._
 
 ## History
 
