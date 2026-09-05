@@ -1,8 +1,11 @@
 import NextAuth from "next-auth";
+import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
+import bcrypt from "bcryptjs";
 
 import { prisma } from "@/lib/prisma";
 import authConfig from "@/auth.config";
+import { signInSchema } from "@/lib/validations/auth";
 
 /**
  * Full Auth.js instance — import this everywhere in the app *except* the proxy.
@@ -11,7 +14,44 @@ import authConfig from "@/auth.config";
  * a JWT session strategy. JWT sessions are required by the split-config pattern:
  * the proxy runs Auth.js without the adapter, so it can only read the session
  * from the token, never the database.
+ *
+ * The Credentials provider from `authConfig` is a `authorize: () => null`
+ * placeholder; here we map over the providers and replace it with the real
+ * bcrypt-backed check (kept out of `auth.config.ts` so the edge bundle stays
+ * free of `bcryptjs` and Prisma).
  */
+const providers = authConfig.providers.map((provider) => {
+  if (typeof provider === "function") return provider;
+  if (provider.id !== "credentials") return provider;
+
+  return Credentials({
+    credentials: {
+      email: { label: "Email", type: "email" },
+      password: { label: "Password", type: "password" },
+    },
+    authorize: async (credentials) => {
+      const parsed = signInSchema.safeParse(credentials);
+      if (!parsed.success) return null;
+
+      const { email, password } = parsed.data;
+      const user = await prisma.user.findUnique({
+        where: { email: email.toLowerCase() },
+      });
+      if (!user?.password) return null;
+
+      const passwordMatches = await bcrypt.compare(password, user.password);
+      if (!passwordMatches) return null;
+
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        image: user.image,
+      };
+    },
+  });
+});
+
 export const { auth, handlers, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
@@ -28,4 +68,5 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
     },
   },
   ...authConfig,
+  providers,
 });
