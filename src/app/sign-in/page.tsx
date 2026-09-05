@@ -4,6 +4,7 @@ import { Layers } from "lucide-react";
 
 import { auth } from "@/auth";
 import { SignInForm } from "@/components/auth/SignInForm";
+import { emailVerificationEnabled } from "@/lib/auth-flags";
 
 export const metadata = {
   title: "Sign in · DevStash",
@@ -36,7 +37,9 @@ export default async function SignInPage({
   } else if (firstParam(params.registered)) {
     notice = {
       tone: "info",
-      text: "Check your email for a verification link to activate your account.",
+      text: emailVerificationEnabled()
+        ? "Check your email for a verification link to activate your account."
+        : "Your account is ready — sign in below.",
     };
   } else if (firstParam(params.error) === "verification") {
     notice = {

@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import authConfig from "@/auth.config";
 import { signInSchema } from "@/lib/validations/auth";
+import { emailVerificationEnabled } from "@/lib/auth-flags";
 
 /**
  * Full Auth.js instance — import this everywhere in the app *except* the proxy.
@@ -54,7 +55,9 @@ const providers = authConfig.providers.map((provider) => {
       const passwordMatches = await bcrypt.compare(password, user.password);
       if (!passwordMatches) return null;
 
-      if (!user.emailVerified) throw new UnverifiedEmailError();
+      if (emailVerificationEnabled() && !user.emailVerified) {
+        throw new UnverifiedEmailError();
+      }
 
       return {
         id: user.id,

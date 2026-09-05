@@ -9,6 +9,7 @@ import {
   RESEND_DEBOUNCE_MS,
 } from "@/lib/tokens";
 import { sendVerificationEmail } from "@/lib/email";
+import { emailVerificationEnabled } from "@/lib/auth-flags";
 
 const TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -37,6 +38,12 @@ export async function POST(request: Request) {
       { success: false, error: "Enter a valid email address" },
       { status: 400 },
     );
+  }
+
+  // Verification disabled: there's nothing to resend. Keep the same always-200
+  // shape so the client needs no special-casing.
+  if (!emailVerificationEnabled()) {
+    return NextResponse.json({ success: true });
   }
 
   const { email } = parsed.data;
