@@ -3,34 +3,22 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  ChevronDown,
-  Folder,
-  Layers,
-  Settings,
-  Star,
-} from "lucide-react";
+import { ChevronDown, Folder, Layers, Star } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { mockUser } from "@/lib/mock-data";
 import type { ItemTypeWithCount } from "@/lib/db/items";
 import type { CollectionWithStats } from "@/lib/db/collections";
 import { FALLBACK_ICON, palette, TYPE_ICON } from "@/lib/type-presentation";
 import { Badge } from "@/components/ui/badge";
+import {
+  SidebarUser,
+  type SidebarUserData,
+} from "@/components/dashboard/SidebarUser";
 
 const PRO_TYPE_NAMES = new Set(["file", "image"]);
 
 function capitalize(name: string) {
   return name.charAt(0).toUpperCase() + name.slice(1);
-}
-
-function initials(name: string) {
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
 }
 
 interface SidebarProps {
@@ -40,6 +28,8 @@ interface SidebarProps {
   itemTypes: ItemTypeWithCount[];
   /** The demo user's collections, for the Favorites/Recent lists. */
   collections: CollectionWithStats[];
+  /** The signed-in user, for the bottom account control. */
+  user: SidebarUserData;
   /** Called when a nav link is followed (used to close the mobile drawer). */
   onNavigate?: () => void;
 }
@@ -48,6 +38,7 @@ export function Sidebar({
   collapsed,
   itemTypes,
   collections,
+  user,
   onNavigate,
 }: SidebarProps) {
   const pathname = usePathname();
@@ -149,35 +140,11 @@ export function Sidebar({
       </nav>
 
       {/* User */}
-      <div className="shrink-0 border-t border-border p-3">
-        <div
-          className={cn(
-            "flex items-center gap-2.5",
-            collapsed && "justify-center",
-          )}
-        >
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
-            {initials(mockUser.name)}
-          </div>
-          {!collapsed && (
-            <>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{mockUser.name}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {mockUser.email}
-                </p>
-              </div>
-              <button
-                type="button"
-                aria-label="Settings"
-                className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
-              >
-                <Settings className="size-4" />
-              </button>
-            </>
-          )}
-        </div>
-      </div>
+      <SidebarUser
+        user={user}
+        collapsed={collapsed}
+        onNavigate={onNavigate}
+      />
     </div>
   );
 }

@@ -18,6 +18,10 @@ import type { NextAuthConfig } from "next-auth";
  * edge). `src/auth.ts` swaps in the real bcrypt-backed `authorize`.
  */
 export default {
+  // Custom auth UI (see `src/app/sign-in`), replacing the Auth.js default pages.
+  pages: {
+    signIn: "/sign-in",
+  },
   providers: [
     GitHub,
     Credentials({
