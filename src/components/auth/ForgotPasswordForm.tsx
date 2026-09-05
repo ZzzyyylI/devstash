@@ -24,8 +24,9 @@ export function ForgotPasswordForm() {
     }
 
     setPending(true);
+    let res: Response | null = null;
     try {
-      await fetch("/api/auth/forgot-password", {
+      res = await fetch("/api/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(parsed.data),
@@ -35,6 +36,14 @@ export function ForgotPasswordForm() {
       // confirmation rather than a network error the user can't act on.
     }
     setPending(false);
+
+    if (res?.status === 429) {
+      const body = (await res.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      setError(body?.error ?? "Too many attempts. Please try again later.");
+      return;
+    }
     setSent(true);
   }
 

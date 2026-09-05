@@ -13,7 +13,7 @@ const globalForResend = globalThis as unknown as {
 const apiKey = process.env.RESEND_API_KEY;
 
 export const resend =
-  globalForResend.resend ?? new Resend(apiKey ?? "re_missing_api_key");
+  globalForResend.resend ?? new Resend(apiKey || "re_missing_api_key");
 
 if (process.env.NODE_ENV !== "production") {
   globalForResend.resend = resend;

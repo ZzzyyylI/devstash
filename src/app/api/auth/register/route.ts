@@ -8,6 +8,7 @@ import { getBaseUrl } from "@/lib/base-url";
 import { createVerificationToken } from "@/lib/tokens";
 import { sendVerificationEmail } from "@/lib/email";
 import { emailVerificationEnabled } from "@/lib/auth-flags";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 /**
  * POST /api/auth/register
@@ -40,6 +41,14 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+
+  const limit = await checkRateLimit({
+    request,
+    name: "auth:register",
+    limit: 3,
+    window: "1 h",
+  });
+  if (!limit.success) return rateLimitResponse(limit.reset);
 
   const { name, email, password } = parsed.data;
 
