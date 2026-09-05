@@ -9,6 +9,7 @@ import { Sidebar } from "@/components/dashboard/Sidebar";
 import { TopBar } from "@/components/dashboard/TopBar";
 import type { ItemTypeWithCount } from "@/lib/db/items";
 import type { CollectionWithStats } from "@/lib/db/collections";
+import type { SidebarUserData } from "@/components/dashboard/SidebarUser";
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -16,6 +17,8 @@ interface DashboardShellProps {
   itemTypes: ItemTypeWithCount[];
   /** The demo user's collections, for the sidebar. */
   collections: CollectionWithStats[];
+  /** The signed-in user, for the bottom account control. */
+  user: SidebarUserData;
 }
 
 /**
@@ -26,6 +29,7 @@ export function DashboardShell({
   children,
   itemTypes,
   collections,
+  user,
 }: DashboardShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -43,6 +47,7 @@ export function DashboardShell({
           collapsed={collapsed}
           itemTypes={itemTypes}
           collections={collections}
+          user={user}
         />
       </aside>
 
@@ -65,6 +70,7 @@ export function DashboardShell({
               collapsed={false}
               itemTypes={itemTypes}
               collections={collections}
+              user={user}
               onNavigate={() => setMobileOpen(false)}
             />
           </Dialog.Content>
