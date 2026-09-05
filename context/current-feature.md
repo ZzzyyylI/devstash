@@ -1,26 +1,36 @@
-# Current Feature
+# Current Feature: Item Drawer
 
 <!-- Feature Name -->
 
-_None — ready for the next feature._
+Right-side slide-in drawer that serves as the item detail view (no separate item page).
 
 ## Status
 
 <!-- Not Started|In Progress|Completed -->
 
-Completed
+In Progress
 
 ## Goals
 
 <!-- Goals & requirements -->
 
-_None._
+- Add a right-side slide-in drawer (shadcn `Sheet`) that opens when an `ItemCard` is clicked — this is the item detail view; there is no separate item page.
+- Works on both the dashboard and the `/items/[type]` list pages (both are server components, so a client wrapper component manages drawer open/close state).
+- Card data already loaded by the server component (title, description, tags, type, pin/favorite) is passed straight into the drawer; full detail (content, collection, language, timestamps, etc.) is fetched on click.
+- New `GET /api/items/[id]` API route with an auth check, calling a new query function in `src/lib/db/items.ts`.
+- Drawer shows a skeleton/loading state while the detail fetch is in flight; feels snappy, no page navigation.
+- Action bar: Favorite (star, yellow when active), Pin, Copy, Edit (pencil), Delete (trash, right-aligned) — layout per `context/screenshots/dashboard-ui-drawer.png`. Buttons can be display-only / stubbed for now if wiring them up is out of scope.
+- Drawer body sections per screenshot: header (type icon + title + type badge + language badge), Description, Content, Tags, Collections, Details (Created / Updated dates).
 
 ## Notes
 
 <!-- Any extra notes -->
 
-_None._
+- Scope is the drawer **details display** only. Code editor, per-type rendering, and item-specific extras come later.
+- Reference design: `context/screenshots/dashboard-ui-drawer.png`.
+- `ItemCard` (`src/components/dashboard/ItemCard.tsx`) is currently a non-interactive server-rendered card; it (or its wrapper) will need to become clickable. `ItemRow` on the dashboard may also be a click target — confirm scope during implementation (spec says "clicking an ItemCard").
+- Follow existing patterns: `src/lib/db/items.ts` query helpers are demo-user-scoped via `getDemoUserId`; the API route should do its own auth check per the spec.
+- Two untracked sibling specs exist (`item-create-spec.md`, `item-drawer-edit-spec.md`) — later phases, not part of this feature.
 
 ## History
 
