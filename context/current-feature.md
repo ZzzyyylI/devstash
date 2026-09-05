@@ -1,26 +1,36 @@
-# Current Feature
+# Current Feature: Items List View
 
 <!-- Feature Name -->
 
-_None — ready for the next feature._
+Dynamic items listing page at `/items/[type]` that displays type-filtered items.
 
 ## Status
 
 <!-- Not Started|In Progress|Completed -->
 
-Completed
+In Progress
 
 ## Goals
 
 <!-- Goals & requirements -->
 
-_None._
+- Build out the existing dynamic route `/items/[type]` (currently a placeholder) to render a real type-filtered item list
+- Fetch the demo user's items filtered by the resolved item type via Prisma (`src/lib/db/items.ts`), following existing DB-layer patterns
+- Display items in a responsive grid of `ItemCard` components — two columns on medium screens and up, one column below
+- Each card has a left border colored by the item type (derive via `palette()` in `src/lib/type-presentation.ts`, matching `ItemRow` / `CollectionCard`)
+- Keep the existing 404 behavior for unknown types and the "Back to dashboard" link
+- Follow existing codebase patterns (async server component, `force-dynamic`, `src/lib/db` fetchers, ShadCN/Tailwind styling)
 
 ## Notes
 
 <!-- Any extra notes -->
 
-_None._
+- Spec: `context/features/item-list-view-spec.md`
+- The route already exists as a placeholder: `src/app/items/[type]/page.tsx` (uses `getItemTypeByName`, `force-dynamic`, `notFound()` on unknown type). Sidebar type links point here with singular/lowercase names (e.g. `/items/snippet`).
+- New: an `ItemCard` component (grid card) — the spec names `ItemCard`; the codebase currently only has the compact `ItemRow` for the dashboard lists. Decide whether to add `ItemCard` alongside it or adapt.
+- New DB fetcher needed: items filtered by type id for the demo user (add to `src/lib/db/items.ts`, reuse `ITEM_INCLUDE` / `toItemWithType`).
+- Reuse `TYPE_ICON` / `palette()` / `FALLBACK_ICON` from `src/lib/type-presentation.ts` for icon + left-accent color.
+- Verify with `npm run build` and `npm run lint`; check rendered output against live Neon-seeded data.
 
 ## History
 
