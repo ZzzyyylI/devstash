@@ -1,4 +1,4 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
@@ -20,6 +20,18 @@ import { signInSchema } from "@/lib/validations/auth";
  * bcrypt-backed check (kept out of `auth.config.ts` so the edge bundle stays
  * free of `bcryptjs` and Prisma).
  */
+
+/**
+ * Thrown from `authorize` when the password is correct but the email has never
+ * been verified. The `code` reaches the client as `signIn(...)`'s `code` field
+ * so the sign-in form can show a "verify your email" message with a resend
+ * action, instead of the generic "invalid credentials". It only fires *after* a
+ * correct password, so it reveals nothing to someone who doesn't already have
+ * the credentials.
+ */
+class UnverifiedEmailError extends CredentialsSignin {
+  code = "unverified_email";
+}
 const providers = authConfig.providers.map((provider) => {
   if (typeof provider === "function") return provider;
   if (provider.id !== "credentials") return provider;
@@ -41,6 +53,8 @@ const providers = authConfig.providers.map((provider) => {
 
       const passwordMatches = await bcrypt.compare(password, user.password);
       if (!passwordMatches) return null;
+
+      if (!user.emailVerified) throw new UnverifiedEmailError();
 
       return {
         id: user.id,

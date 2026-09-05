@@ -18,11 +18,17 @@ interface SignInFormProps {
 export function SignInForm({ callbackUrl }: SignInFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
+  const [resendState, setResendState] = useState<"idle" | "sending" | "sent">(
+    "idle",
+  );
   const [pending, setPending] = useState<"credentials" | "github" | null>(null);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setUnverifiedEmail(null);
+    setResendState("idle");
 
     const form = new FormData(event.currentTarget);
     const parsed = signInSchema.safeParse({
@@ -41,12 +47,31 @@ export function SignInForm({ callbackUrl }: SignInFormProps) {
     });
     setPending(null);
 
+    if (result?.code === "unverified_email") {
+      setUnverifiedEmail(parsed.data.email);
+      return;
+    }
     if (!result || result.error) {
       setError("Invalid email or password.");
       return;
     }
     router.push(callbackUrl);
     router.refresh();
+  }
+
+  async function resendVerification() {
+    if (!unverifiedEmail) return;
+    setResendState("sending");
+    try {
+      await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: unverifiedEmail }),
+      });
+    } catch {
+      // Swallow — the endpoint is best-effort and always "succeeds" anyway.
+    }
+    setResendState("sent");
   }
 
   return (
@@ -82,6 +107,34 @@ export function SignInForm({ callbackUrl }: SignInFormProps) {
           <p role="alert" className="text-sm text-destructive">
             {error}
           </p>
+        )}
+
+        {unverifiedEmail && (
+          <div
+            role="alert"
+            className="space-y-2 rounded-md border border-border bg-muted/50 p-3 text-sm"
+          >
+            <p>
+              Verify your email before signing in. We sent a link to{" "}
+              <span className="font-medium">{unverifiedEmail}</span>.
+            </p>
+            {resendState === "sent" ? (
+              <p className="text-muted-foreground">
+                Sent — check your inbox (and spam).
+              </p>
+            ) : (
+              <button
+                type="button"
+                onClick={resendVerification}
+                disabled={resendState === "sending"}
+                className="font-medium text-foreground underline disabled:opacity-50"
+              >
+                {resendState === "sending"
+                  ? "Sending…"
+                  : "Resend verification email"}
+              </button>
+            )}
+          </div>
         )}
 
         <Button type="submit" className="w-full" disabled={pending !== null}>

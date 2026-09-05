@@ -2,25 +2,62 @@
 
 <!-- Feature Name -->
 
-_None — ready for the next feature._
+Email Verification on Register
 
 ## Status
 
 <!-- Not Started|In Progress|Completed -->
 
-Completed
+In Progress
 
 ## Goals
 
 <!-- Goals & requirements -->
 
-_None._
+- New email/password registrations must confirm ownership of their email before they can sign in.
+- After `POST /api/auth/register` creates the user, send a verification email via **Resend** containing a unique, expiring link.
+- Clicking the link marks the account verified (`User.emailVerified` set to the current time) and sends the user to `/sign-in` with a success message.
+- The Credentials provider's `authorize` (in `src/auth.ts`) rejects sign-in for users whose `emailVerified` is `null`, with a distinct, user-facing "verify your email" message on the sign-in page (not the generic "invalid email or password").
+- Provide a way to re-request the verification email (e.g. a "Resend verification email" action on the sign-in page or a dedicated route) that is safe to call repeatedly.
+- Verification tokens are single-use, time-limited, and invalidated once consumed.
+- GitHub OAuth sign-ins are unaffected — the adapter already sets `emailVerified` for OAuth accounts.
 
 ## Notes
 
 <!-- Any extra notes -->
 
-_None._
+- **Resend**: `RESEND_API_KEY` is already in `.env`. Add the `resend` npm package (not yet installed). Add `RESEND_API_KEY` + a `EMAIL_FROM` sender to `.env.example`. A dev/test sender such as `onboarding@resend.dev` works until a domain is verified in Resend.
+- **Token storage**: reuse the existing `VerificationToken` model in `prisma/schema.prisma` (`identifier` / `token` / `expires`, compound id) — it is currently unused. Store a hashed or random opaque token; set a short TTL (e.g. 24h). No schema change expected; `User.emailVerified` (`DateTime?`) already exists.
+- **Base URL**: the verification link needs an absolute URL. Derive it from an env var (e.g. `AUTH_URL` / `NEXTAUTH_URL` or a new `NEXT_PUBLIC_APP_URL`) rather than hardcoding `localhost:3000`.
+- **Verification endpoint**: prefer an API route (`GET /api/auth/verify-email?token=…`) per coding standards (specific redirects / status codes), which looks up the token, checks expiry, sets `emailVerified`, deletes the token, then redirects to `/sign-in`.
+- **Register flow change**: `src/app/api/auth/register/route.ts` still returns 201, but now also fires the email. Email-send failure should not roll back the user (they can re-request); log it. The existing `RegisterForm` already redirects to `/sign-in` on success — update copy there to say "check your email".
+- **Email module**: add a small `src/lib/email.ts` (Resend client singleton + `sendVerificationEmail(email, url)`), mirroring the `src/lib/prisma.ts` singleton pattern.
+- **Security**: don't reveal whether an email is registered when resending; always respond the same way. Rate-limit / debounce resends if practical.
+- Follow the standard workflow: branch `feature/email-verification`, implement, `npm run build` + `npm run lint`, browser-test the full round-trip, then commit on approval.
+
+### Implementation status (branch `feature/email-verification`)
+
+Done — `npm run build` + `npm run lint` pass; full round-trip browser-tested.
+
+- Added `resend@^6.26.0`.
+- `src/lib/email.ts` — Resend singleton + `sendVerificationEmail(to, url)` (HTML + text; throws on failure). `EMAIL_FROM` env, falls back to `onboarding@resend.dev`.
+- `src/lib/tokens.ts` — `createVerificationToken` (256-bit hex, drops prior tokens, 24h TTL), `consumeVerificationToken` (single-use, expiry-checked), `latestVerificationToken` + `RESEND_DEBOUNCE_MS` (60s) for resend throttling. Reuses the existing `VerificationToken` table — no schema change.
+- `src/lib/base-url.ts` — `getBaseUrl(request)`: `AUTH_URL`/`NEXT_PUBLIC_APP_URL` override, else derived from forwarded host.
+- `POST /api/auth/register` — after `user.create`, mints a token + sends the email in a try/catch that only logs on failure (registration still 201).
+- `GET /api/auth/verify-email?token=…` (new route) — consumes token, `updateMany` sets `emailVerified` (no-op if unknown/already verified), redirects `/sign-in?verified=1` on success or `?error=verification` otherwise.
+- `POST /api/auth/resend-verification` (new route) — always `{ success: true }` 200 (no account enumeration); only sends for a real, still-unverified user and only if the last token is older than the 60s debounce. `resendVerificationSchema` added to `src/lib/validations/auth.ts`.
+- `src/auth.ts` — `authorize` throws `UnverifiedEmailError extends CredentialsSignin` (`code = "unverified_email"`) when the password is correct but `emailVerified` is null. Only fires after a correct password, so no enumeration.
+- `src/components/auth/SignInForm.tsx` — on `signIn` result `code === "unverified_email"`, shows a distinct "verify your email" alert with a "Resend verification email" action (→ `/api/auth/resend-verification`).
+- `src/app/sign-in/page.tsx` — renders a banner for `?registered=1` / `?verified=1` / `?error=verification`.
+- `src/components/auth/RegisterForm.tsx` — success now routes to `/sign-in?registered=1`.
+- `.env` / `.env.example` — documented `RESEND_API_KEY`, `EMAIL_FROM`, `NEXT_PUBLIC_APP_URL`.
+
+Notes / follow-ups:
+- GitHub OAuth is unaffected (the check is credentials-only; OAuth never hits `authorize`).
+- Pre-existing credentials users from earlier phases (`test@test.com`, `ada@example.com`) have `emailVerified = null` and can no longer sign in with a password until they verify — expected.
+- With `EMAIL_FROM` unset, Resend's test sender only delivers to the Resend account owner's address; real delivery needs a verified domain.
+- Left dev-DB test users `verify-test-…@example.com` (verified) and `verify-ui-1788632644@example.com` (verified) from testing.
+- Resend debounce is per-token in the DB (60s); no cross-request rate limiting beyond that.
 
 ## History
 
