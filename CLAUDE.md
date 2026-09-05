@@ -17,6 +17,7 @@ Read the following to get the full context of the project:
 - **Build**: `npm run build`
 - **Production server**: `npm run start`
 - **Lint**: `npm run lint`
+- **Unit tests**: `npm run test` (Vitest, one-shot) / `npm run test:watch` (watch mode). Covers server actions (`src/actions/**`) and utilities (`src/lib/**`) only — no component/DOM tests.
 
 ## Neon MCP
 
