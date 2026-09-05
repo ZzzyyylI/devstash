@@ -43,3 +43,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# mcp — local server config (may contain API keys)
+.mcp.json
+
+# playwright mcp — session artifacts (regenerated on every run)
+.playwright-mcp/
