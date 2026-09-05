@@ -2,14 +2,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
-import { getItemTypeByName } from "@/lib/db/items";
+import { getItemsByType, getItemTypeByName } from "@/lib/db/items";
+import { ItemCard } from "@/components/dashboard/ItemCard";
 
 // Reads live data from Neon — don't statically cache it at build time.
 export const dynamic = "force-dynamic";
 
 /**
- * Placeholder target for the sidebar type links (e.g. /items/snippet). The
- * real item list view is built in a later phase.
+ * Type-filtered item list (e.g. /items/snippet). Renders the demo user's items
+ * of the resolved type in a responsive grid of cards.
  */
 export default async function ItemsByTypePage({
   params,
@@ -23,8 +24,10 @@ export default async function ItemsByTypePage({
     notFound();
   }
 
+  const items = await getItemsByType(itemType.id);
+
   return (
-    <div className="mx-auto max-w-3xl p-6">
+    <div className="mx-auto max-w-6xl p-6">
       <Link
         href="/dashboard"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -32,13 +35,22 @@ export default async function ItemsByTypePage({
         <ArrowLeft className="size-4" />
         Back to dashboard
       </Link>
-      <h1 className="mt-4 text-2xl font-semibold capitalize">
-        {itemType.name}
-      </h1>
+      <h1 className="mt-4 text-2xl font-semibold capitalize">{itemType.name}</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        {itemType.itemCount} items in this type. The full item list is coming in a
-        later phase.
+        {items.length} {items.length === 1 ? "item" : "items"} in this type
       </p>
+
+      {items.length === 0 ? (
+        <p className="mt-10 text-sm text-muted-foreground">
+          No items of this type yet.
+        </p>
+      ) : (
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
+          {items.map((item) => (
+            <ItemCard key={item.id} item={item} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

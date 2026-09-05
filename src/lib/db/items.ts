@@ -77,6 +77,20 @@ export async function getRecentItems(limit = 10): Promise<ItemWithType[]> {
   return items.map(toItemWithType);
 }
 
+/** The demo user's items of a given type, most recently updated first, for the /items/[type] list view. */
+export async function getItemsByType(typeId: string): Promise<ItemWithType[]> {
+  const userId = await getDemoUserId();
+  if (!userId) return [];
+
+  const items = await prisma.item.findMany({
+    where: { userId, typeId },
+    orderBy: { updatedAt: "desc" },
+    include: ITEM_INCLUDE,
+  });
+
+  return items.map(toItemWithType);
+}
+
 /** Display order for the sidebar's Types list (mirrors the old mock data / project spec order). */
 export const TYPE_ORDER = [
   "type_snippet",
