@@ -56,3 +56,38 @@ export async function consumeVerificationToken(
 
   return { identifier: row.identifier };
 }
+
+/**
+ * Password-reset tokens share the `VerificationToken` table with the
+ * email-verification flow. To keep the two from clobbering each other —
+ * `createVerificationToken` drops every row for an identifier before minting a
+ * new one — reset tokens are stored under a namespaced identifier
+ * (`pwreset:<email>`). The `pwreset:` prefix never appears in a real email
+ * address, so the two namespaces can't overlap.
+ */
+const PW_RESET_PREFIX = "pwreset:";
+
+/** Mint a fresh password-reset token for `email`. Drops any prior reset token. */
+export async function createPasswordResetToken(email: string): Promise<string> {
+  return createVerificationToken(`${PW_RESET_PREFIX}${email}`);
+}
+
+/** Most recent password-reset token for `email`, or `null`. Debounce helper. */
+export async function latestPasswordResetToken(email: string) {
+  return latestVerificationToken(`${PW_RESET_PREFIX}${email}`);
+}
+
+/**
+ * Validate and consume a password-reset token.
+ *
+ * Returns the bare email the token was minted for, or `null` if the token is
+ * unknown, expired, or not a password-reset token. Single-use either way.
+ */
+export async function consumePasswordResetToken(
+  token: string,
+): Promise<{ email: string } | null> {
+  const result = await consumeVerificationToken(token);
+  if (!result || !result.identifier.startsWith(PW_RESET_PREFIX)) return null;
+
+  return { email: result.identifier.slice(PW_RESET_PREFIX.length) };
+}

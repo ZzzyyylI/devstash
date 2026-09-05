@@ -32,7 +32,12 @@ export default async function SignInPage({
   if (session?.user) redirect(callbackUrl);
 
   let notice: { tone: "info" | "error"; text: string } | null = null;
-  if (firstParam(params.verified)) {
+  if (firstParam(params.reset)) {
+    notice = {
+      tone: "info",
+      text: "Password updated — sign in with your new password.",
+    };
+  } else if (firstParam(params.verified)) {
     notice = { tone: "info", text: "Email verified — you can sign in now." };
   } else if (firstParam(params.registered)) {
     notice = {
