@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
-import { getItemTypesWithCounts } from "@/lib/db/items";
+import { getItemTypeByName } from "@/lib/db/items";
 
 // Reads live data from Neon — don't statically cache it at build time.
 export const dynamic = "force-dynamic";
@@ -17,10 +17,7 @@ export default async function ItemsByTypePage({
   params: Promise<{ type: string }>;
 }) {
   const { type } = await params;
-  const itemTypes = await getItemTypesWithCounts();
-  const itemType = itemTypes.find(
-    (candidate) => candidate.name.toLowerCase() === type,
-  );
+  const itemType = await getItemTypeByName(type);
 
   if (!itemType) {
     notFound();
