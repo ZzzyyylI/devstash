@@ -17,7 +17,7 @@ export function ItemCard({ item }: { item: ItemWithType }) {
   return (
     <div
       className={cn(
-        "flex flex-col rounded-xl border border-border border-l-4 bg-card p-4",
+        "flex h-full flex-col rounded-xl border border-border border-l-4 bg-card p-4",
         accent.border,
       )}
     >

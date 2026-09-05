@@ -91,6 +91,66 @@ export async function getItemsByType(typeId: string): Promise<ItemWithType[]> {
   return items.map(toItemWithType);
 }
 
+export interface ItemDetail {
+  id: string;
+  title: string;
+  description: string | null;
+  content: string | null;
+  contentType: string;
+  language: string | null;
+  url: string | null;
+  fileName: string | null;
+  fileSize: number | null;
+  fileUrl: string | null;
+  isFavorite: boolean;
+  isPinned: boolean;
+  type: ItemItemType;
+  tags: string[];
+  collection: { id: string; name: string } | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Full detail for a single item, for the item drawer. Scoped to the demo user
+ * like the rest of this file; returns `null` when the id doesn't match one of
+ * their items. The `/api/items/[id]` route adds the signed-in check.
+ */
+export async function getItemDetail(id: string): Promise<ItemDetail | null> {
+  const userId = await getDemoUserId();
+  if (!userId) return null;
+
+  const item = await prisma.item.findFirst({
+    where: { id, userId },
+    include: {
+      type: { select: { id: true, name: true, icon: true, color: true } },
+      tags: { include: { tag: { select: { name: true } } } },
+      collection: { select: { id: true, name: true } },
+    },
+  });
+  if (!item) return null;
+
+  return {
+    id: item.id,
+    title: item.title,
+    description: item.description,
+    content: item.content,
+    contentType: item.contentType,
+    language: item.language,
+    url: item.url,
+    fileName: item.fileName,
+    fileSize: item.fileSize,
+    fileUrl: item.fileUrl,
+    isFavorite: item.isFavorite,
+    isPinned: item.isPinned,
+    type: item.type,
+    tags: item.tags.map(({ tag }) => tag.name),
+    collection: item.collection,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  };
+}
+
 /** Display order for the sidebar's Types list (mirrors the old mock data / project spec order). */
 export const TYPE_ORDER = [
   "type_snippet",

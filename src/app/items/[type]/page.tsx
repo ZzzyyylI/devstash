@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { getItemsByType, getItemTypeByName } from "@/lib/db/items";
-import { ItemCard } from "@/components/dashboard/ItemCard";
+import { ItemBrowser } from "@/components/items/ItemBrowser";
 
 // Reads live data from Neon — don't statically cache it at build time.
 export const dynamic = "force-dynamic";
@@ -45,10 +45,8 @@ export default async function ItemsByTypePage({
           No items of this type yet.
         </p>
       ) : (
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((item) => (
-            <ItemCard key={item.id} item={item} />
-          ))}
+        <div className="mt-6">
+          <ItemBrowser items={items} layout="grid" />
         </div>
       )}
     </div>

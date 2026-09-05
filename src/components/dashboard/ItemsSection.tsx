@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 
 import type { ItemWithType } from "@/lib/db/items";
-import { ItemRow } from "@/components/dashboard/ItemRow";
+import { ItemBrowser } from "@/components/items/ItemBrowser";
 
 interface ItemsSectionProps {
   title: string;
@@ -19,10 +19,8 @@ export function ItemsSection({ title, icon: Icon, items }: ItemsSectionProps) {
         <Icon className="size-4 text-muted-foreground" />
         <h2 className="text-lg font-semibold">{title}</h2>
       </div>
-      <div className="mt-4 space-y-3">
-        {items.map((item) => (
-          <ItemRow key={item.id} item={item} />
-        ))}
+      <div className="mt-4">
+        <ItemBrowser items={items} layout="list" />
       </div>
     </section>
   );
