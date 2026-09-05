@@ -7,6 +7,7 @@ import { registerSchema } from "@/lib/validations/auth";
 import { getBaseUrl } from "@/lib/base-url";
 import { createVerificationToken } from "@/lib/tokens";
 import { sendVerificationEmail } from "@/lib/email";
+import { emailVerificationEnabled } from "@/lib/auth-flags";
 
 /**
  * POST /api/auth/register
@@ -51,21 +52,31 @@ export async function POST(request: Request) {
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
+  const verifyEmail = emailVerificationEnabled();
 
   try {
     const user = await prisma.user.create({
-      data: { name, email, password: passwordHash },
+      data: {
+        name,
+        email,
+        password: passwordHash,
+        // With verification off there's no link to click, so the account is
+        // usable straight away — record it as verified to keep the data honest.
+        ...(verifyEmail ? {} : { emailVerified: new Date() }),
+      },
       select: { id: true, name: true, email: true },
     });
 
-    // Fire the verification email. A failure here must not fail registration —
-    // the account exists and the user can request a fresh link from /sign-in.
-    try {
-      const token = await createVerificationToken(email);
-      const verifyUrl = `${getBaseUrl(request)}/api/auth/verify-email?token=${token}`;
-      await sendVerificationEmail(email, verifyUrl);
-    } catch (mailError) {
-      console.error("Verification email failed to send:", mailError);
+    if (verifyEmail) {
+      // Fire the verification email. A failure here must not fail registration —
+      // the account exists and the user can request a fresh link from /sign-in.
+      try {
+        const token = await createVerificationToken(email);
+        const verifyUrl = `${getBaseUrl(request)}/api/auth/verify-email?token=${token}`;
+        await sendVerificationEmail(email, verifyUrl);
+      } catch (mailError) {
+        console.error("Verification email failed to send:", mailError);
+      }
     }
 
     return NextResponse.json({ success: true, data: user }, { status: 201 });
