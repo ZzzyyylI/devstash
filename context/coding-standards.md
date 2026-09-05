@@ -94,4 +94,14 @@ Example v4 configuration:
 - No commented-out code unless specified
 - No unused imports or variables
 - Keep functions under 50 lines when possible
+
+## Testing
+
+- **Vitest** for unit tests: `npm run test` (one-shot) / `npm run test:watch`. Config in `vitest.config.mts`.
+- Test **server actions (`src/actions/**`) and utilities (`src/lib/**`) only**. No component, DOM, or browser testing — components are verified manually.
+- Co-locate tests as `*.test.ts` beside the source file. Runner only collects `src/{actions,lib}/**/*.test.ts`.
+- Node environment, no jsdom. Use Web `Request`/`Response` globals directly.
+- No real DB or network: `vi.mock("@/lib/prisma", …)` for Prisma, `vi.mock("@/auth", …)` for anything importing the auth instance.
+- Manipulate env with `vi.stubEnv` / `vi.unstubAllEnvs()` (`afterEach`); `undefined` unsets.
+- Add tests alongside new utilities/actions in the same commit; keep them fast and deterministic.
 ```
