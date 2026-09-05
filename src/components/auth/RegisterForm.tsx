@@ -56,7 +56,7 @@ export function RegisterForm() {
     setPending(false);
 
     if (res.ok) {
-      router.push("/sign-in");
+      router.push("/sign-in?registered=1");
       return;
     }
 

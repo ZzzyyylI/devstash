@@ -4,6 +4,9 @@ import { Prisma } from "@/generated/prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { registerSchema } from "@/lib/validations/auth";
+import { getBaseUrl } from "@/lib/base-url";
+import { createVerificationToken } from "@/lib/tokens";
+import { sendVerificationEmail } from "@/lib/email";
 
 /**
  * POST /api/auth/register
@@ -54,6 +57,16 @@ export async function POST(request: Request) {
       data: { name, email, password: passwordHash },
       select: { id: true, name: true, email: true },
     });
+
+    // Fire the verification email. A failure here must not fail registration —
+    // the account exists and the user can request a fresh link from /sign-in.
+    try {
+      const token = await createVerificationToken(email);
+      const verifyUrl = `${getBaseUrl(request)}/api/auth/verify-email?token=${token}`;
+      await sendVerificationEmail(email, verifyUrl);
+    } catch (mailError) {
+      console.error("Verification email failed to send:", mailError);
+    }
 
     return NextResponse.json({ success: true, data: user }, { status: 201 });
   } catch (error) {

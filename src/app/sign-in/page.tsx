@@ -17,6 +17,10 @@ function safeCallbackUrl(raw: string | string[] | undefined) {
     : "/dashboard";
 }
 
+function firstParam(raw: string | string[] | undefined) {
+  return Array.isArray(raw) ? raw[0] : raw;
+}
+
 export default async function SignInPage({
   searchParams,
 }: PageProps<"/sign-in">) {
@@ -25,6 +29,21 @@ export default async function SignInPage({
 
   const session = await auth();
   if (session?.user) redirect(callbackUrl);
+
+  let notice: { tone: "info" | "error"; text: string } | null = null;
+  if (firstParam(params.verified)) {
+    notice = { tone: "info", text: "Email verified — you can sign in now." };
+  } else if (firstParam(params.registered)) {
+    notice = {
+      tone: "info",
+      text: "Check your email for a verification link to activate your account.",
+    };
+  } else if (firstParam(params.error) === "verification") {
+    notice = {
+      tone: "error",
+      text: "That verification link is invalid or has expired. Sign in to request a new one.",
+    };
+  }
 
   return (
     <main className="flex min-h-screen items-center justify-center p-6">
@@ -41,6 +60,18 @@ export default async function SignInPage({
             Sign in to your DevStash account
           </p>
         </div>
+
+        {notice && (
+          <p
+            className={
+              notice.tone === "error"
+                ? "rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
+                : "rounded-md border border-border bg-muted/50 p-3 text-sm"
+            }
+          >
+            {notice.text}
+          </p>
+        )}
 
         <SignInForm callbackUrl={callbackUrl} />
       </div>

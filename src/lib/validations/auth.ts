@@ -12,6 +12,11 @@ export const signInSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
+/** Body of `POST /api/auth/resend-verification`. */
+export const resendVerificationSchema = z.object({
+  email: z.email().transform((value) => value.toLowerCase()),
+});
+
 export const registerSchema = z
   .object({
     name: z.string().trim().min(1, "Name is required").max(100),
