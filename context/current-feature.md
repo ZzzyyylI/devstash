@@ -2,7 +2,7 @@
 
 <!-- Feature Name -->
 
-_None — ready for the next feature._
+Card Quick-Copy Icon
 
 ## Status
 
@@ -14,13 +14,16 @@ Completed
 
 <!-- Goals & requirements -->
 
-_None._
+- Add a one-click "copy" icon to the item cards (grid) and rows (dashboard list) that copies the item's payload to the clipboard without opening the drawer.
+- Copy the URL for `link` items, the text body for snippet/prompt/command/note. No copy button for `file` / `image` cards (they have Download) or the image gallery.
 
 ## Notes
 
 <!-- Any extra notes -->
 
-_None._
+- `ItemWithType` gained `content` / `url` (already-fetched `Item` scalars — only the `ItemRecord` type + `toItemWithType` mapper changed, no query change).
+- New `src/components/items/CopyButton.tsx` (`"use client"`) — Copy→Check (1.5s) icon button; `stopPropagation` so a copy click doesn't also open the drawer; guards a missing/blocked `navigator.clipboard`.
+- `ItemBrowser` grid/list arms switched from the `<button>` wrapper to a `FileRow`-style stretched-link card (absolute `inset-0` trigger + `pointer-events-none` content) so the copy button isn't nested in the drawer trigger; it's a `pointer-events-auto` sibling revealed on `group-hover` / focus, positioned `bottom-3 right-3`. `gallery` / `files` arms unchanged.
 
 ## History
 

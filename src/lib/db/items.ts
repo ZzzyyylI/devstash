@@ -18,6 +18,10 @@ export interface ItemWithType {
   id: string;
   title: string;
   description: string | null;
+  /** Text body — set for text items (snippet/prompt/command/note), null for files. */
+  content: string | null;
+  /** External link — only set for `link` items. */
+  url: string | null;
   isFavorite: boolean;
   isPinned: boolean;
   type: ItemItemType;
@@ -39,6 +43,8 @@ type ItemRecord = {
   id: string;
   title: string;
   description: string | null;
+  content: string | null;
+  url: string | null;
   isFavorite: boolean;
   isPinned: boolean;
   type: ItemItemType;
@@ -54,6 +60,8 @@ function toItemWithType(item: ItemRecord): ItemWithType {
     id: item.id,
     title: item.title,
     description: item.description,
+    content: item.content,
+    url: item.url,
     isFavorite: item.isFavorite,
     isPinned: item.isPinned,
     type: item.type,
