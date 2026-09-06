@@ -76,6 +76,16 @@ export const CREATE_ITEM_TYPES = [
 
 export type CreateItemType = (typeof CREATE_ITEM_TYPES)[number];
 
+/** Item types whose content is code — these get the Monaco `CodeEditor` instead of a textarea. */
+export const CODE_ITEM_TYPES = ["snippet", "command"] as const;
+
+/** True when an item type's content should render in the code editor. */
+export function isCodeItemType(typeName: string): boolean {
+  return (CODE_ITEM_TYPES as readonly string[]).includes(
+    typeName.trim().toLowerCase(),
+  );
+}
+
 /**
  * Zod schema for the item create payload (`createItem` server action).
  *
