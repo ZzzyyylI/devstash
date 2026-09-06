@@ -35,7 +35,8 @@ export default async function ItemsByTypePage({
   const creatableType = (CREATE_ITEM_TYPES as readonly string[]).includes(typeKey)
     ? (typeKey as CreateItemType)
     : null;
-  const layout = typeKey === "image" ? "gallery" : "grid";
+  const layout =
+    typeKey === "image" ? "gallery" : typeKey === "file" ? "files" : "grid";
 
   return (
     <div className="mx-auto max-w-6xl p-6">

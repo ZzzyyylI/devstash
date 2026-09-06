@@ -8,15 +8,17 @@ import type { ItemWithType } from "@/lib/db/items";
 import { ItemCard } from "@/components/dashboard/ItemCard";
 import { ImageCard } from "@/components/dashboard/ImageCard";
 import { ItemRow } from "@/components/dashboard/ItemRow";
+import { FileRow } from "@/components/dashboard/FileRow";
 import { ItemDrawer, type ItemDetailJson } from "@/components/items/ItemDrawer";
 
 interface ItemBrowserProps {
   items: ItemWithType[];
   /**
    * `grid` renders `ItemCard`s (list pages); `gallery` renders `ImageCard`
-   * thumbnails (the image type page); `list` renders `ItemRow`s (dashboard).
+   * thumbnails (the image type page); `files` renders a `FileRow` list (the
+   * file type page); `list` renders `ItemRow`s (dashboard).
    */
-  layout: "grid" | "gallery" | "list";
+  layout: "grid" | "gallery" | "files" | "list";
 }
 
 /**
@@ -112,27 +114,33 @@ export function ItemBrowser({ items, layout }: ItemBrowserProps) {
     <>
       <div
         className={cn(
-          layout === "list"
+          layout === "list" || layout === "files"
             ? "space-y-3"
             : "grid gap-4 sm:grid-cols-2 lg:grid-cols-3",
         )}
       >
-        {items.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => select(item)}
-            className="block h-full w-full cursor-pointer rounded-xl text-left transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {layout === "list" ? (
-              <ItemRow item={item} />
-            ) : layout === "gallery" ? (
-              <ImageCard item={item} />
-            ) : (
-              <ItemCard item={item} />
-            )}
-          </button>
-        ))}
+        {items.map((item) =>
+          layout === "files" ? (
+            // `FileRow` owns a download link, so it can't be nested in a
+            // <button> — it takes the open handler directly instead.
+            <FileRow key={item.id} item={item} onOpen={() => select(item)} />
+          ) : (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => select(item)}
+              className="block h-full w-full cursor-pointer rounded-xl text-left transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {layout === "list" ? (
+                <ItemRow item={item} />
+              ) : layout === "gallery" ? (
+                <ImageCard item={item} />
+              ) : (
+                <ItemCard item={item} />
+              )}
+            </button>
+          ),
+        )}
       </div>
 
       <ItemDrawer
