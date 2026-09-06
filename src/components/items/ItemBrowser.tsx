@@ -93,6 +93,17 @@ export function ItemBrowser({ items, layout }: ItemBrowserProps) {
     [router],
   );
 
+  // After a delete, close the drawer, drop the cached detail, and re-run the
+  // server components so the card list loses the deleted item.
+  const handleDeleted = useCallback(
+    (id: string) => {
+      cache.current.delete(id);
+      setOpen(false);
+      router.refresh();
+    },
+    [router],
+  );
+
   return (
     <>
       <div
@@ -126,6 +137,7 @@ export function ItemBrowser({ items, layout }: ItemBrowserProps) {
         loading={loading}
         error={error}
         onSaved={handleSaved}
+        onDeleted={handleDeleted}
       />
     </>
   );

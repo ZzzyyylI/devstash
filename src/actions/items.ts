@@ -1,7 +1,11 @@
 "use server";
 
 import { auth } from "@/auth";
-import { updateItem as updateItemQuery, type ItemDetail } from "@/lib/db/items";
+import {
+  deleteItem as deleteItemQuery,
+  updateItem as updateItemQuery,
+  type ItemDetail,
+} from "@/lib/db/items";
 import { updateItemSchema } from "@/lib/validations/item";
 
 type ActionResult<T> =
@@ -48,5 +52,36 @@ export async function updateItem(
   } catch (error) {
     console.error("updateItem action failed", error);
     return { success: false, error: "Something went wrong saving the item." };
+  }
+}
+
+/**
+ * Delete an item from the drawer's action bar (behind a confirmation dialog).
+ *
+ * Requires a signed-in session and delegates ownership + the write to
+ * `deleteItem` in `src/lib/db/items.ts` (demo-user scoped, like the rest of the
+ * data layer). No Zod schema — the only input is the id.
+ */
+export async function deleteItem(
+  itemId: string,
+): Promise<ActionResult<{ id: string }>> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, error: "You must be signed in to delete items." };
+  }
+
+  if (typeof itemId !== "string" || itemId.length === 0) {
+    return { success: false, error: "Missing item id." };
+  }
+
+  try {
+    const deleted = await deleteItemQuery(itemId);
+    if (!deleted) {
+      return { success: false, error: "Item not found." };
+    }
+    return { success: true, data: { id: itemId } };
+  } catch (error) {
+    console.error("deleteItem action failed", error);
+    return { success: false, error: "Something went wrong deleting the item." };
   }
 }

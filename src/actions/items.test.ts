@@ -6,9 +6,13 @@ const auth = vi.fn();
 vi.mock("@/auth", () => ({ auth }));
 
 const updateItemQuery = vi.fn();
-vi.mock("@/lib/db/items", () => ({ updateItem: updateItemQuery }));
+const deleteItemQuery = vi.fn();
+vi.mock("@/lib/db/items", () => ({
+  updateItem: updateItemQuery,
+  deleteItem: deleteItemQuery,
+}));
 
-const { updateItem } = await import("@/actions/items");
+const { updateItem, deleteItem } = await import("@/actions/items");
 
 const validInput = {
   title: "Updated title",
@@ -22,6 +26,7 @@ const validInput = {
 beforeEach(() => {
   auth.mockReset();
   updateItemQuery.mockReset();
+  deleteItemQuery.mockReset();
   auth.mockResolvedValue({ user: { id: "user_1" } });
 });
 
@@ -93,6 +98,57 @@ describe("updateItem action", () => {
     expect(result).toEqual({
       success: false,
       error: "Something went wrong saving the item.",
+    });
+    consoleError.mockRestore();
+  });
+});
+
+describe("deleteItem action", () => {
+  it("rejects an unauthenticated caller without touching the database", async () => {
+    auth.mockResolvedValue(null);
+
+    const result = await deleteItem("item_1");
+
+    expect(result).toEqual({
+      success: false,
+      error: "You must be signed in to delete items.",
+    });
+    expect(deleteItemQuery).not.toHaveBeenCalled();
+  });
+
+  it("rejects a missing item id", async () => {
+    const result = await deleteItem("");
+
+    expect(result).toEqual({ success: false, error: "Missing item id." });
+    expect(deleteItemQuery).not.toHaveBeenCalled();
+  });
+
+  it("deletes the item and echoes its id back", async () => {
+    deleteItemQuery.mockResolvedValue(true);
+
+    const result = await deleteItem("item_1");
+
+    expect(deleteItemQuery).toHaveBeenCalledWith("item_1");
+    expect(result).toEqual({ success: true, data: { id: "item_1" } });
+  });
+
+  it("maps a false query result (not the demo user's item) to a not-found error", async () => {
+    deleteItemQuery.mockResolvedValue(false);
+
+    const result = await deleteItem("item_1");
+
+    expect(result).toEqual({ success: false, error: "Item not found." });
+  });
+
+  it("returns a generic error when the query throws", async () => {
+    deleteItemQuery.mockRejectedValue(new Error("db down"));
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await deleteItem("item_1");
+
+    expect(result).toEqual({
+      success: false,
+      error: "Something went wrong deleting the item.",
     });
     consoleError.mockRestore();
   });
