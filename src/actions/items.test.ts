@@ -5,14 +5,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const auth = vi.fn();
 vi.mock("@/auth", () => ({ auth }));
 
+const createItemQuery = vi.fn();
 const updateItemQuery = vi.fn();
 const deleteItemQuery = vi.fn();
 vi.mock("@/lib/db/items", () => ({
+  createItem: createItemQuery,
   updateItem: updateItemQuery,
   deleteItem: deleteItemQuery,
 }));
 
-const { updateItem, deleteItem } = await import("@/actions/items");
+const { createItem, updateItem, deleteItem } = await import("@/actions/items");
 
 const validInput = {
   title: "Updated title",
@@ -25,9 +27,104 @@ const validInput = {
 
 beforeEach(() => {
   auth.mockReset();
+  createItemQuery.mockReset();
   updateItemQuery.mockReset();
   deleteItemQuery.mockReset();
   auth.mockResolvedValue({ user: { id: "user_1" } });
+});
+
+describe("createItem action", () => {
+  const validCreate = {
+    type: "snippet",
+    title: "New snippet",
+    description: "",
+    content: "console.log(1)",
+    language: "ts",
+    url: "",
+    tags: ["react"],
+  };
+
+  it("rejects an unauthenticated caller without touching the database", async () => {
+    auth.mockResolvedValue(null);
+
+    const result = await createItem(validCreate);
+
+    expect(result).toEqual({
+      success: false,
+      error: "You must be signed in to create items.",
+    });
+    expect(createItemQuery).not.toHaveBeenCalled();
+  });
+
+  it("returns field errors for an invalid type", async () => {
+    const result = await createItem({ ...validCreate, type: "spaceship" });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.fieldErrors?.type?.length).toBeGreaterThan(0);
+    }
+    expect(createItemQuery).not.toHaveBeenCalled();
+  });
+
+  it("requires a URL for a link item", async () => {
+    const result = await createItem({
+      ...validCreate,
+      type: "link",
+      url: "",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.fieldErrors?.url?.[0]).toMatch(/valid URL/i);
+    }
+    expect(createItemQuery).not.toHaveBeenCalled();
+  });
+
+  it("passes the normalised payload to the query and returns the fresh detail", async () => {
+    const detail = { id: "item_1", title: "New snippet" };
+    createItemQuery.mockResolvedValue(detail);
+
+    const result = await createItem({
+      ...validCreate,
+      title: "  New snippet  ",
+      tags: [" react ", "react", ""],
+    });
+
+    expect(createItemQuery).toHaveBeenCalledWith({
+      type: "snippet",
+      title: "New snippet",
+      description: null,
+      content: "console.log(1)",
+      language: "ts",
+      url: null,
+      tags: ["react"],
+    });
+    expect(result).toEqual({ success: true, data: detail });
+  });
+
+  it("maps a null query result to a generic error", async () => {
+    createItemQuery.mockResolvedValue(null);
+
+    const result = await createItem(validCreate);
+
+    expect(result).toEqual({
+      success: false,
+      error: "Something went wrong creating the item.",
+    });
+  });
+
+  it("returns a generic error when the query throws", async () => {
+    createItemQuery.mockRejectedValue(new Error("db down"));
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await createItem(validCreate);
+
+    expect(result).toEqual({
+      success: false,
+      error: "Something went wrong creating the item.",
+    });
+    consoleError.mockRestore();
+  });
 });
 
 describe("updateItem action", () => {

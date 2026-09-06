@@ -50,14 +50,47 @@ const tags = z
   )
   .pipe(z.array(z.string()).max(50, "Too many tags (max 50)"));
 
-export const updateItemSchema = z.object({
+/** Fields shared by the create and update payloads. */
+const itemFields = {
   title: z.string().trim().min(1, "Title is required").max(200),
   description: nullableText,
   content: nullableContent,
   url: nullableUrl,
   language: nullableText,
   tags,
-});
+};
+
+export const updateItemSchema = z.object(itemFields);
 
 /** Validated + normalised update payload. */
 export type UpdateItemInput = z.infer<typeof updateItemSchema>;
+
+/** Item types offered by the "New Item" dialog (system types, minus the Pro-only File / Image). */
+export const CREATE_ITEM_TYPES = [
+  "snippet",
+  "prompt",
+  "command",
+  "note",
+  "link",
+] as const;
+
+export type CreateItemType = (typeof CREATE_ITEM_TYPES)[number];
+
+/**
+ * Zod schema for the item create payload (`createItem` server action).
+ *
+ * Same normalised fields as {@link updateItemSchema} plus a required `type`, and
+ * a `link` item must carry a URL.
+ */
+export const createItemSchema = z
+  .object({
+    type: z.enum(CREATE_ITEM_TYPES, { message: "Pick an item type" }),
+    ...itemFields,
+  })
+  .refine((data) => data.type !== "link" || data.url !== null, {
+    message: "Enter a valid URL (including https://)",
+    path: ["url"],
+  });
+
+/** Validated + normalised create payload. */
+export type CreateItemInput = z.infer<typeof createItemSchema>;

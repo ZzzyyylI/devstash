@@ -1,26 +1,38 @@
-# Current Feature
+# Current Feature: Item Create
 
 <!-- Feature Name -->
 
-_None — ready for the next feature._
+Add new items via a modal dialog, opened from the "New Item" button in the top bar.
 
 ## Status
 
 <!-- Not Started|In Progress|Completed -->
 
-Completed
+In Progress
 
 ## Goals
 
 <!-- Goals & requirements -->
 
-_None._
+- Modal built on the shadcn `Dialog` component, opened from the top bar "New Item" button
+- Type selector covering snippet, prompt, command, note, link
+- Type-conditional fields:
+  - All types: title (required), description, tags
+  - snippet / command: content, language
+  - prompt / note: content
+  - link: URL (required)
+- `createItem` server action in `src/actions/items.ts` with Zod validation
+- `createItem` query function in `src/lib/db/items.ts`
+- On success: toast, close the modal, refresh the view
 
 ## Notes
 
 <!-- Any extra notes -->
 
-_None._
+- Spec: `context/features/item-create-spec.md`
+- Mirror existing patterns from Item Drawer — Edit Mode: `updateItemSchema` in `src/lib/validations/item.ts`, the `updateItem` action/query pair, `sonner` toasts, inline `fieldErrors`, `router.refresh()` after mutation.
+- Demo-user-scoped like the other item queries (`getDemoUserId`); resolve `typeId` from the selected type name.
+- Add Vitest unit tests for the new schema, the `createItem` action, and any new validation helper in the same commit.
 
 ## History
 
