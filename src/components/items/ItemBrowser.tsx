@@ -6,13 +6,17 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { ItemWithType } from "@/lib/db/items";
 import { ItemCard } from "@/components/dashboard/ItemCard";
+import { ImageCard } from "@/components/dashboard/ImageCard";
 import { ItemRow } from "@/components/dashboard/ItemRow";
 import { ItemDrawer, type ItemDetailJson } from "@/components/items/ItemDrawer";
 
 interface ItemBrowserProps {
   items: ItemWithType[];
-  /** `grid` renders `ItemCard`s (list pages); `list` renders `ItemRow`s (dashboard). */
-  layout: "grid" | "list";
+  /**
+   * `grid` renders `ItemCard`s (list pages); `gallery` renders `ImageCard`
+   * thumbnails (the image type page); `list` renders `ItemRow`s (dashboard).
+   */
+  layout: "grid" | "gallery" | "list";
 }
 
 /**
@@ -108,9 +112,9 @@ export function ItemBrowser({ items, layout }: ItemBrowserProps) {
     <>
       <div
         className={cn(
-          layout === "grid"
-            ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-            : "space-y-3",
+          layout === "list"
+            ? "space-y-3"
+            : "grid gap-4 sm:grid-cols-2 lg:grid-cols-3",
         )}
       >
         {items.map((item) => (
@@ -120,10 +124,12 @@ export function ItemBrowser({ items, layout }: ItemBrowserProps) {
             onClick={() => select(item)}
             className="block h-full w-full cursor-pointer rounded-xl text-left transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            {layout === "grid" ? (
-              <ItemCard item={item} />
-            ) : (
+            {layout === "list" ? (
               <ItemRow item={item} />
+            ) : layout === "gallery" ? (
+              <ImageCard item={item} />
+            ) : (
+              <ItemCard item={item} />
             )}
           </button>
         ))}
