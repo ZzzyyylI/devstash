@@ -199,6 +199,21 @@ export async function updateItem(
   return getItemDetail(id);
 }
 
+/**
+ * Delete one of the demo user's items. Scoped to the demo user like the rest of
+ * this file — returns `false` when the id isn't one of their items (the caller
+ * treats that as "not found"). The `ItemTag` join rows cascade-delete with the
+ * item (FK `onDelete: Cascade`); the item's collection link is `SetNull`, so the
+ * collection itself is untouched.
+ */
+export async function deleteItem(id: string): Promise<boolean> {
+  const userId = await getDemoUserId();
+  if (!userId) return false;
+
+  const { count } = await prisma.item.deleteMany({ where: { id, userId } });
+  return count > 0;
+}
+
 /** Display order for the sidebar's Types list (mirrors the old mock data / project spec order). */
 export const TYPE_ORDER = [
   "type_snippet",

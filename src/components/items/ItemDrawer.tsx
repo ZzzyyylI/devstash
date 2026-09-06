@@ -17,8 +17,18 @@ import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import type { ItemDetail, ItemWithType } from "@/lib/db/items";
-import { updateItem } from "@/actions/items";
+import { deleteItem, updateItem } from "@/actions/items";
 import { FALLBACK_ICON, palette, TYPE_ICON } from "@/lib/type-presentation";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -59,6 +69,8 @@ interface ItemDrawerProps {
   error: boolean;
   /** Called with the fresh detail after an edit saves. */
   onSaved: (updated: ItemDetailJson) => void;
+  /** Called with the item id after it's deleted. */
+  onDeleted: (id: string) => void;
 }
 
 /**
@@ -75,16 +87,39 @@ export function ItemDrawer({
   loading,
   error,
   onSaved,
+  onDeleted,
 }: ItemDrawerProps) {
   const [editing, setEditing] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
-  // Leave edit mode whenever the drawer closes or a different item is opened.
-  // (Render-phase reset per the React "adjusting state on prop change" pattern.)
+  // Leave edit mode / dismiss the delete prompt whenever the drawer closes or a
+  // different item is opened. (Render-phase reset per the React "adjusting state
+  // on prop change" pattern.)
   const openItemKey = open ? (summary?.id ?? null) : null;
   const [lastOpenItemKey, setLastOpenItemKey] = useState(openItemKey);
   if (openItemKey !== lastOpenItemKey) {
     setLastOpenItemKey(openItemKey);
     setEditing(false);
+    setConfirmingDelete(false);
+    setDeleting(false);
+  }
+
+  async function handleDelete() {
+    if (!summary || deleting) return;
+
+    setDeleting(true);
+    const result = await deleteItem(summary.id);
+    setDeleting(false);
+
+    if (!result.success) {
+      toast.error(result.error);
+      return;
+    }
+
+    setConfirmingDelete(false);
+    toast.success("Item deleted");
+    onDeleted(summary.id);
   }
 
   const typeId = summary?.type.id;
@@ -151,11 +186,48 @@ export function ItemDrawer({
                       disabled={!detail}
                       onClick={() => setEditing(true)}
                     />
-                    <ActionButton icon={Trash2} destructive />
+                    <ActionButton
+                      icon={Trash2}
+                      destructive
+                      onClick={() => setConfirmingDelete(true)}
+                    />
                   </div>
                 </div>
               )}
             </SheetHeader>
+
+            <AlertDialog
+              open={confirmingDelete}
+              onOpenChange={(next) => {
+                if (!deleting) setConfirmingDelete(next);
+              }}
+            >
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete this item?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    &ldquo;{summary.title}&rdquo; will be permanently deleted.
+                    This can&apos;t be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={deleting}>
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    data-variant="destructive"
+                    className="bg-destructive/10 text-destructive hover:bg-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30"
+                    disabled={deleting}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      void handleDelete();
+                    }}
+                  >
+                    {deleting ? "Deleting…" : "Delete"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
 
             {editing && detail ? (
               <ItemEditForm
