@@ -1,6 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { getDemoUserId } from "@/lib/db/user";
-import type { CreateItemInput, UpdateItemInput } from "@/lib/validations/item";
+import { deleteObject, toObjectKey } from "@/lib/r2";
+import {
+  isFileItemType,
+  type CreateItemInput,
+  type UpdateItemInput,
+} from "@/lib/validations/item";
 
 export interface ItemItemType {
   id: string;
@@ -208,6 +213,10 @@ export async function updateItem(
  * `ItemType` id; returns `null` when there is no demo user or the type can't be
  * found (the caller treats that as a generic failure). Tags are connect-or-created
  * against the user's tag set, same as `updateItem`.
+ *
+ * For `file` / `image` items the payload carries a `fileKey` (an R2 object key
+ * from `POST /api/upload`) plus the original name and size; those land in
+ * `fileUrl` / `fileName` / `fileSize` and `contentType` is `"file"`.
  */
 export async function createItem(
   data: CreateItemInput,
@@ -224,14 +233,19 @@ export async function createItem(
   });
   if (!type) return null;
 
+  const isFile = isFileItemType(data.type);
+
   const created = await prisma.item.create({
     data: {
       title: data.title,
       description: data.description,
-      content: data.content,
+      content: isFile ? null : data.content,
       url: data.url,
       language: data.language,
-      contentType: "text",
+      contentType: isFile ? "file" : "text",
+      fileUrl: isFile ? (data.fileKey ?? null) : null,
+      fileName: isFile ? (data.fileName ?? null) : null,
+      fileSize: isFile ? (data.fileSize ?? null) : null,
       userId,
       typeId: type.id,
       tags: {
@@ -257,13 +271,27 @@ export async function createItem(
  * treats that as "not found"). The `ItemTag` join rows cascade-delete with the
  * item (FK `onDelete: Cascade`); the item's collection link is `SetNull`, so the
  * collection itself is untouched.
+ *
+ * A `file` / `image` item's backing R2 object is removed too, best-effort — a
+ * storage failure is logged but doesn't fail the delete.
  */
 export async function deleteItem(id: string): Promise<boolean> {
   const userId = await getDemoUserId();
   if (!userId) return false;
 
-  const { count } = await prisma.item.deleteMany({ where: { id, userId } });
-  return count > 0;
+  const owned = await prisma.item.findFirst({
+    where: { id, userId },
+    select: { id: true, fileUrl: true },
+  });
+  if (!owned) return false;
+
+  await prisma.item.delete({ where: { id: owned.id } });
+
+  if (owned.fileUrl) {
+    await deleteObject(toObjectKey(owned.fileUrl));
+  }
+
+  return true;
 }
 
 /** Display order for the sidebar's Types list (mirrors the old mock data / project spec order). */

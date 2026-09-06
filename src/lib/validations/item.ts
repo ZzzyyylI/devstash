@@ -65,16 +65,28 @@ export const updateItemSchema = z.object(itemFields);
 /** Validated + normalised update payload. */
 export type UpdateItemInput = z.infer<typeof updateItemSchema>;
 
-/** Item types offered by the "New Item" dialog (system types, minus the Pro-only File / Image). */
+/** Item types offered by the "New Item" dialog. */
 export const CREATE_ITEM_TYPES = [
   "snippet",
   "prompt",
   "command",
   "note",
   "link",
+  "file",
+  "image",
 ] as const;
 
 export type CreateItemType = (typeof CREATE_ITEM_TYPES)[number];
+
+/** Item types whose payload is an uploaded object rather than text. */
+export const FILE_ITEM_TYPES = ["file", "image"] as const;
+
+/** True when an item type is backed by a file/image upload. */
+export function isFileItemType(typeName: string): boolean {
+  return (FILE_ITEM_TYPES as readonly string[]).includes(
+    typeName.trim().toLowerCase(),
+  );
+}
 
 /** Item types whose content is code — these get the Monaco `CodeEditor` instead of a textarea. */
 export const CODE_ITEM_TYPES = ["snippet", "command"] as const;
@@ -97,20 +109,41 @@ export function isMarkdownItemType(typeName: string): boolean {
 }
 
 /**
+ * Fields carrying a completed upload — only present for `file` / `image` items.
+ * Plain optionals (no normalising transform) so a text item's payload is
+ * unchanged: the values come straight from `POST /api/upload`.
+ */
+const fileFields = {
+  /** R2 object key returned by `POST /api/upload`. */
+  fileKey: z.string().trim().min(1).nullable().optional(),
+  fileName: z.string().trim().min(1).max(255).nullable().optional(),
+  fileSize: z.number().int().positive().nullable().optional(),
+};
+
+/**
  * Zod schema for the item create payload (`createItem` server action).
  *
- * Same normalised fields as {@link updateItemSchema} plus a required `type`, and
- * a `link` item must carry a URL.
+ * Same normalised fields as {@link updateItemSchema} plus a required `type`. A
+ * `link` item must carry a URL; a `file` / `image` item must carry an uploaded
+ * object key.
  */
 export const createItemSchema = z
   .object({
     type: z.enum(CREATE_ITEM_TYPES, { message: "Pick an item type" }),
     ...itemFields,
+    ...fileFields,
   })
   .refine((data) => data.type !== "link" || data.url !== null, {
     message: "Enter a valid URL (including https://)",
     path: ["url"],
-  });
+  })
+  .refine(
+    (data) => !isFileItemType(data.type) || Boolean(data.fileKey),
+    {
+      message: "Upload a file first",
+      path: ["fileKey"],
+    },
+  );
 
 /** Validated + normalised create payload. */
 export type CreateItemInput = z.infer<typeof createItemSchema>;

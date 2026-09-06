@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createItemSchema,
   isCodeItemType,
+  isFileItemType,
   isMarkdownItemType,
   updateItemSchema,
 } from "@/lib/validations/item";
@@ -131,6 +132,55 @@ describe("createItemSchema", () => {
     expect(
       createItemSchema.parse({ ...createBase, type: "note", url: "" }).url,
     ).toBeNull();
+  });
+
+  it("requires an uploaded key for file / image types", () => {
+    for (const type of ["file", "image"] as const) {
+      const result = createItemSchema.safeParse({ ...base, type });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.flatten().fieldErrors.fileKey?.[0]).toMatch(
+          /upload a file/i,
+        );
+      }
+    }
+  });
+
+  it("accepts a file item that carries an upload", () => {
+    const parsed = createItemSchema.parse({
+      ...base,
+      type: "image",
+      fileKey: "uploads/user_1/image/abc.png",
+      fileName: "abc.png",
+      fileSize: 2048,
+    });
+    expect(parsed).toMatchObject({
+      type: "image",
+      fileKey: "uploads/user_1/image/abc.png",
+      fileName: "abc.png",
+      fileSize: 2048,
+    });
+  });
+
+  it("leaves file fields undefined for a text item", () => {
+    const parsed = createItemSchema.parse({ ...createBase });
+    expect(parsed.fileKey).toBeUndefined();
+    expect(parsed.fileSize).toBeUndefined();
+  });
+});
+
+describe("isFileItemType", () => {
+  it("is true for file / image, case- and whitespace-insensitively", () => {
+    expect(isFileItemType("file")).toBe(true);
+    expect(isFileItemType("image")).toBe(true);
+    expect(isFileItemType("  Image ")).toBe(true);
+    expect(isFileItemType("FILE")).toBe(true);
+  });
+
+  it("is false for the text types", () => {
+    expect(isFileItemType("snippet")).toBe(false);
+    expect(isFileItemType("link")).toBe(false);
+    expect(isFileItemType("")).toBe(false);
   });
 });
 
