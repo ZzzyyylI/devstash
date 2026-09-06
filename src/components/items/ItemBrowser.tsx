@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 import type { ItemWithType } from "@/lib/db/items";
@@ -20,6 +21,7 @@ interface ItemBrowserProps {
  * fetched from `/api/items/[id]` on click and cached for re-opens.
  */
 export function ItemBrowser({ items, layout }: ItemBrowserProps) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [summary, setSummary] = useState<ItemWithType | null>(null);
   const [detail, setDetail] = useState<ItemDetailJson | null>(null);
@@ -66,6 +68,31 @@ export function ItemBrowser({ items, layout }: ItemBrowserProps) {
       });
   }, []);
 
+  // After an edit saves, refresh the drawer's own state from the returned
+  // detail and re-run the server components so the card list reflects the change.
+  const handleSaved = useCallback(
+    (updated: ItemDetailJson) => {
+      cache.current.set(updated.id, updated);
+      setDetail(updated);
+      setSummary((prev) =>
+        prev && prev.id === updated.id
+          ? {
+              ...prev,
+              title: updated.title,
+              description: updated.description,
+              isFavorite: updated.isFavorite,
+              isPinned: updated.isPinned,
+              type: updated.type,
+              tags: updated.tags,
+              updatedAt: new Date(updated.updatedAt),
+            }
+          : prev,
+      );
+      router.refresh();
+    },
+    [router],
+  );
+
   return (
     <>
       <div
@@ -98,6 +125,7 @@ export function ItemBrowser({ items, layout }: ItemBrowserProps) {
         detail={detail}
         loading={loading}
         error={error}
+        onSaved={handleSaved}
       />
     </>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   Calendar,
@@ -12,10 +13,14 @@ import {
   Tag,
   Trash2,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import type { ItemDetail, ItemWithType } from "@/lib/db/items";
+import { updateItem } from "@/actions/items";
 import { FALLBACK_ICON, palette, TYPE_ICON } from "@/lib/type-presentation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Sheet,
   SheetContent,
@@ -38,6 +43,11 @@ function formatLongDate(value: string): string {
   });
 }
 
+/** Item type names that get a Content textarea in the edit form. */
+const CONTENT_TYPES = ["snippet", "prompt", "command", "note"];
+/** Item type names that get a Language input in the edit form. */
+const LANGUAGE_TYPES = ["snippet", "command"];
+
 interface ItemDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -47,12 +57,15 @@ interface ItemDrawerProps {
   detail: ItemDetailJson | null;
   loading: boolean;
   error: boolean;
+  /** Called with the fresh detail after an edit saves. */
+  onSaved: (updated: ItemDetailJson) => void;
 }
 
 /**
  * Right-side slide-in item detail view. The header and description render from
  * the card data we already have; the content / collection / details block shows
- * a skeleton until the detail fetch resolves.
+ * a skeleton until the detail fetch resolves. The pencil action swaps the body
+ * for an inline edit form (same drawer, no navigation).
  */
 export function ItemDrawer({
   open,
@@ -61,7 +74,19 @@ export function ItemDrawer({
   detail,
   loading,
   error,
+  onSaved,
 }: ItemDrawerProps) {
+  const [editing, setEditing] = useState(false);
+
+  // Leave edit mode whenever the drawer closes or a different item is opened.
+  // (Render-phase reset per the React "adjusting state on prop change" pattern.)
+  const openItemKey = open ? (summary?.id ?? null) : null;
+  const [lastOpenItemKey, setLastOpenItemKey] = useState(openItemKey);
+  if (openItemKey !== lastOpenItemKey) {
+    setLastOpenItemKey(openItemKey);
+    setEditing(false);
+  }
+
   const typeId = summary?.type.id;
   const Icon = (typeId && TYPE_ICON[typeId]) || FALLBACK_ICON;
   const accent = palette(summary?.type.color ?? null);
@@ -81,7 +106,9 @@ export function ItemDrawer({
                   <Icon className={cn("size-5", accent.text)} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <SheetTitle className="truncate">{summary.title}</SheetTitle>
+                  <SheetTitle className="truncate">
+                    {editing ? "Edit item" : summary.title}
+                  </SheetTitle>
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                     <span className="rounded bg-muted px-1.5 py-0.5 text-xs capitalize text-muted-foreground">
                       {summary.type.name}
@@ -95,114 +122,318 @@ export function ItemDrawer({
                 </div>
               </div>
 
-              <div className="flex items-center gap-1 pt-1">
-                <ActionButton
-                  icon={Star}
-                  label="Favorite"
-                  active={summary.isFavorite}
-                  activeIconClass="fill-amber-400 text-amber-400"
-                />
-                <ActionButton
-                  icon={Pin}
-                  label="Pin"
-                  active={summary.isPinned}
-                />
-                <ActionButton
-                  icon={Copy}
-                  label="Copy"
-                  onClick={() => {
-                    if (detail?.content) {
-                      void navigator.clipboard?.writeText(detail.content);
-                    }
-                  }}
-                />
-                <div className="ml-auto flex items-center gap-1">
-                  <ActionButton icon={Pencil} label="Edit" />
-                  <ActionButton icon={Trash2} destructive />
+              {!editing && (
+                <div className="flex items-center gap-1 pt-1">
+                  <ActionButton
+                    icon={Star}
+                    label="Favorite"
+                    active={summary.isFavorite}
+                    activeIconClass="fill-amber-400 text-amber-400"
+                  />
+                  <ActionButton
+                    icon={Pin}
+                    label="Pin"
+                    active={summary.isPinned}
+                  />
+                  <ActionButton
+                    icon={Copy}
+                    label="Copy"
+                    onClick={() => {
+                      if (detail?.content) {
+                        void navigator.clipboard?.writeText(detail.content);
+                      }
+                    }}
+                  />
+                  <div className="ml-auto flex items-center gap-1">
+                    <ActionButton
+                      icon={Pencil}
+                      label="Edit"
+                      disabled={!detail}
+                      onClick={() => setEditing(true)}
+                    />
+                    <ActionButton icon={Trash2} destructive />
+                  </div>
                 </div>
-              </div>
+              )}
             </SheetHeader>
 
-            <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-6">
-              {summary.description && (
-                <Section title="Description">
-                  <p className="text-sm text-muted-foreground">
-                    {summary.description}
-                  </p>
-                </Section>
-              )}
-
-              {error ? (
-                <p className="text-sm text-destructive">
-                  Couldn&apos;t load this item. Close the drawer and try again.
-                </p>
-              ) : loading || !detail ? (
-                <DetailSkeleton />
-              ) : (
-                <>
-                  {detail.content && (
-                    <Section title="Content">
-                      <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-xs leading-relaxed">
-                        <code>{detail.content}</code>
-                      </pre>
-                    </Section>
-                  )}
-
-                  {detail.url && (
-                    <Section title="URL" icon={LinkIcon}>
-                      <a
-                        href={detail.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-sm break-all text-primary underline-offset-4 hover:underline"
-                      >
-                        {detail.url}
-                      </a>
-                    </Section>
-                  )}
-
-                  {summary.tags.length > 0 && (
-                    <Section title="Tags" icon={Tag}>
-                      <div className="flex flex-wrap gap-1.5">
-                        {summary.tags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </Section>
-                  )}
-
-                  {detail.collection && (
-                    <Section title="Collections" icon={FolderOpen}>
-                      <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                        {detail.collection.name}
-                      </span>
-                    </Section>
-                  )}
-
-                  <Section title="Details" icon={Calendar}>
-                    <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-sm">
-                      <dt className="text-muted-foreground">Created</dt>
-                      <dd className="text-right">
-                        {formatLongDate(detail.createdAt)}
-                      </dd>
-                      <dt className="text-muted-foreground">Updated</dt>
-                      <dd className="text-right">
-                        {formatLongDate(detail.updatedAt)}
-                      </dd>
-                    </dl>
+            {editing && detail ? (
+              <ItemEditForm
+                detail={detail}
+                onCancel={() => setEditing(false)}
+                onSaved={(updated) => {
+                  setEditing(false);
+                  onSaved(updated);
+                }}
+              />
+            ) : (
+              <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-6">
+                {summary.description && (
+                  <Section title="Description">
+                    <p className="text-sm text-muted-foreground">
+                      {summary.description}
+                    </p>
                   </Section>
-                </>
-              )}
-            </div>
+                )}
+
+                {error ? (
+                  <p className="text-sm text-destructive">
+                    Couldn&apos;t load this item. Close the drawer and try again.
+                  </p>
+                ) : loading || !detail ? (
+                  <DetailSkeleton />
+                ) : (
+                  <>
+                    {detail.content && (
+                      <Section title="Content">
+                        <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-xs leading-relaxed">
+                          <code>{detail.content}</code>
+                        </pre>
+                      </Section>
+                    )}
+
+                    {detail.url && (
+                      <Section title="URL" icon={LinkIcon}>
+                        <a
+                          href={detail.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-sm break-all text-primary underline-offset-4 hover:underline"
+                        >
+                          {detail.url}
+                        </a>
+                      </Section>
+                    )}
+
+                    {summary.tags.length > 0 && (
+                      <Section title="Tags" icon={Tag}>
+                        <div className="flex flex-wrap gap-1.5">
+                          {summary.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </Section>
+                    )}
+
+                    {detail.collection && (
+                      <Section title="Collections" icon={FolderOpen}>
+                        <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                          {detail.collection.name}
+                        </span>
+                      </Section>
+                    )}
+
+                    <Section title="Details" icon={Calendar}>
+                      <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-sm">
+                        <dt className="text-muted-foreground">Created</dt>
+                        <dd className="text-right">
+                          {formatLongDate(detail.createdAt)}
+                        </dd>
+                        <dt className="text-muted-foreground">Updated</dt>
+                        <dd className="text-right">
+                          {formatLongDate(detail.updatedAt)}
+                        </dd>
+                      </dl>
+                    </Section>
+                  </>
+                )}
+              </div>
+            )}
           </>
         )}
       </SheetContent>
     </Sheet>
+  );
+}
+
+/**
+ * Inline edit form — replaces the action bar (with Save / Cancel) and the detail
+ * body (with editable fields). Type-specific fields (Content / Language / URL)
+ * show only for the relevant item type. The server action re-validates
+ * everything; the only client-side guard is disabling Save on an empty title.
+ */
+function ItemEditForm({
+  detail,
+  onCancel,
+  onSaved,
+}: {
+  detail: ItemDetailJson;
+  onCancel: () => void;
+  onSaved: (updated: ItemDetailJson) => void;
+}) {
+  const typeName = detail.type.name.toLowerCase();
+  const showContent = CONTENT_TYPES.includes(typeName);
+  const showLanguage = LANGUAGE_TYPES.includes(typeName);
+  const showUrl = typeName === "link";
+
+  const [title, setTitle] = useState(detail.title);
+  const [description, setDescription] = useState(detail.description ?? "");
+  const [tagsInput, setTagsInput] = useState(detail.tags.join(", "));
+  const [content, setContent] = useState(detail.content ?? "");
+  const [language, setLanguage] = useState(detail.language ?? "");
+  const [url, setUrl] = useState(detail.url ?? "");
+  const [pending, setPending] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+
+  const titleEmpty = title.trim().length === 0;
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (pending || titleEmpty) return;
+
+    setPending(true);
+    setFieldErrors({});
+
+    const result = await updateItem(detail.id, {
+      title,
+      description,
+      tags: tagsInput
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean),
+      content: showContent ? content : null,
+      language: showLanguage ? language : null,
+      url: showUrl ? url : null,
+    });
+
+    setPending(false);
+
+    if (!result.success) {
+      if (result.fieldErrors) setFieldErrors(result.fieldErrors);
+      toast.error(result.error);
+      return;
+    }
+
+    const data = result.data;
+    toast.success("Item updated");
+    onSaved({
+      ...data,
+      createdAt: new Date(data.createdAt).toISOString(),
+      updatedAt: new Date(data.updatedAt).toISOString(),
+    });
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="flex flex-1 flex-col overflow-hidden"
+    >
+      <div className="flex items-center gap-2 border-b border-border px-6 py-3">
+        <Button type="submit" size="sm" disabled={pending || titleEmpty}>
+          {pending ? "Saving…" : "Save"}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={pending}
+          onClick={onCancel}
+        >
+          Cancel
+        </Button>
+      </div>
+
+      <div className="flex flex-1 flex-col gap-5 overflow-y-auto p-6">
+        <Field label="Title" error={fieldErrors.title}>
+          <Input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            aria-invalid={titleEmpty || Boolean(fieldErrors.title)}
+            autoFocus
+          />
+        </Field>
+
+        <Field label="Description" error={fieldErrors.description}>
+          <textarea
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            rows={3}
+            className={textareaClass}
+          />
+        </Field>
+
+        {showContent && (
+          <Field label="Content" error={fieldErrors.content}>
+            <textarea
+              value={content}
+              onChange={(event) => setContent(event.target.value)}
+              rows={8}
+              className={cn(textareaClass, "font-mono text-xs leading-relaxed")}
+            />
+          </Field>
+        )}
+
+        {showLanguage && (
+          <Field label="Language" error={fieldErrors.language}>
+            <Input
+              value={language}
+              onChange={(event) => setLanguage(event.target.value)}
+              placeholder="e.g. typescript"
+            />
+          </Field>
+        )}
+
+        {showUrl && (
+          <Field label="URL" error={fieldErrors.url}>
+            <Input
+              type="text"
+              inputMode="url"
+              value={url}
+              onChange={(event) => setUrl(event.target.value)}
+              placeholder="https://…"
+              aria-invalid={Boolean(fieldErrors.url)}
+            />
+          </Field>
+        )}
+
+        <Field
+          label="Tags"
+          hint="Comma-separated"
+          error={fieldErrors.tags}
+        >
+          <Input
+            value={tagsInput}
+            onChange={(event) => setTagsInput(event.target.value)}
+            placeholder="react, hooks, patterns"
+          />
+        </Field>
+      </div>
+    </form>
+  );
+}
+
+const textareaClass =
+  "w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive dark:bg-input/30";
+
+function Field({
+  label,
+  hint,
+  error,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  error?: string[];
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-baseline justify-between gap-2">
+        <label className="text-sm font-medium">{label}</label>
+        {hint && (
+          <span className="text-xs text-muted-foreground">{hint}</span>
+        )}
+      </div>
+      {children}
+      {error && error.length > 0 && (
+        <p className="text-xs text-destructive">{error[0]}</p>
+      )}
+    </div>
   );
 }
 
@@ -232,6 +463,7 @@ function ActionButton({
   active = false,
   activeIconClass,
   destructive = false,
+  disabled = false,
   onClick,
 }: {
   icon: LucideIcon;
@@ -239,18 +471,21 @@ function ActionButton({
   active?: boolean;
   activeIconClass?: string;
   destructive?: boolean;
+  disabled?: boolean;
   onClick?: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       className={cn(
         "inline-flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-sm font-medium transition-colors",
         destructive
           ? "text-destructive hover:bg-destructive/10"
           : "text-muted-foreground hover:bg-muted hover:text-foreground",
         active && !destructive && "text-foreground",
+        disabled && "pointer-events-none opacity-40",
       )}
     >
       <Icon className={cn("size-4", active && activeIconClass)} />

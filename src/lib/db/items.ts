@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getDemoUserId } from "@/lib/db/user";
+import type { UpdateItemInput } from "@/lib/validations/item";
 
 export interface ItemItemType {
   id: string;
@@ -149,6 +150,53 @@ export async function getItemDetail(id: string): Promise<ItemDetail | null> {
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
+}
+
+/**
+ * Update one of the demo user's items, then return its fresh {@link ItemDetail}
+ * so the drawer can refresh without a second request.
+ *
+ * Scoped to the demo user like the rest of this file — returns `null` when the
+ * id isn't one of their items (the caller treats that as "not found"). Tags are
+ * replaced wholesale: every existing join row is dropped and the new names are
+ * connect-or-created against the user's tag set.
+ */
+export async function updateItem(
+  id: string,
+  data: UpdateItemInput,
+): Promise<ItemDetail | null> {
+  const userId = await getDemoUserId();
+  if (!userId) return null;
+
+  const owned = await prisma.item.findFirst({
+    where: { id, userId },
+    select: { id: true },
+  });
+  if (!owned) return null;
+
+  await prisma.item.update({
+    where: { id },
+    data: {
+      title: data.title,
+      description: data.description,
+      content: data.content,
+      url: data.url,
+      language: data.language,
+      tags: {
+        deleteMany: {},
+        create: data.tags.map((name) => ({
+          tag: {
+            connectOrCreate: {
+              where: { userId_name: { userId, name } },
+              create: { name, userId },
+            },
+          },
+        })),
+      },
+    },
+  });
+
+  return getItemDetail(id);
 }
 
 /** Display order for the sidebar's Types list (mirrors the old mock data / project spec order). */
