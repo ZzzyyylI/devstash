@@ -1,26 +1,36 @@
-# Current Feature
+# Current Feature: File List View
 
 <!-- Feature Name -->
 
-_None — ready for the next feature._
+Per `context/features/file-display-spec.md`. Render the `file` type page as a single-column list (Google Drive / Dropbox style) instead of the grid-card layout.
 
 ## Status
 
 <!-- Not Started|In Progress|Completed -->
 
-Completed
+In Progress
 
 ## Goals
 
 <!-- Goals & requirements -->
 
-_None._
+- `/items/file` renders a single-column list layout with rows (not grid cards)
+- Each row shows: file icon (by extension), file name, file size, upload date, download button
+- Row hover highlight
+- Clicking a row opens the `ItemDrawer`
+- Download button triggers a direct download and stops propagation (doesn't open the drawer)
+- Responsive: file info stacks vertically on mobile
 
 ## Notes
 
 <!-- Any extra notes -->
 
-_None._
+- Spec says `/items/files`; the actual route is `/items/file` (singular, matching the DB-derived type key used everywhere else).
+- Mirror the existing `layout` prop pattern in `src/components/items/ItemBrowser.tsx` — it already has a `"list"` branch rendering `ItemRow`, and a `"gallery"` branch (`ImageCard`) added for the image page. This feature needs a file-specific list row rather than reusing `ItemRow`, since rows must show extension icon / size / date / download button.
+- `src/app/items/[type]/page.tsx` currently computes `layout = typeKey === "image" ? "gallery" : "grid"`; extend it so `file` → `"list"` (or a new `"files"` layout).
+- Download uses the existing same-origin R2 proxy: `/api/files/[id]?download=1` (sets `Content-Disposition: attachment`).
+- Extension helpers already exist in `src/lib/file-constraints.ts` (`extensionOf`, `formatBytes`).
+- Components aren't unit-tested per project scope; if no `src/actions/**` or `src/lib/**` changes, no new Vitest tests.
 
 ## History
 

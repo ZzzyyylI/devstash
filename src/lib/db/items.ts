@@ -22,6 +22,11 @@ export interface ItemWithType {
   isPinned: boolean;
   type: ItemItemType;
   tags: string[];
+  /** Original upload filename — only set for `file` / `image` items. */
+  fileName: string | null;
+  /** Upload size in bytes — only set for `file` / `image` items. */
+  fileSize: number | null;
+  createdAt: Date;
   updatedAt: Date;
 }
 
@@ -38,6 +43,9 @@ type ItemRecord = {
   isPinned: boolean;
   type: ItemItemType;
   tags: { tag: { name: string } }[];
+  fileName: string | null;
+  fileSize: number | null;
+  createdAt: Date;
   updatedAt: Date;
 };
 
@@ -50,6 +58,9 @@ function toItemWithType(item: ItemRecord): ItemWithType {
     isPinned: item.isPinned,
     type: item.type,
     tags: item.tags.map(({ tag }) => tag.name),
+    fileName: item.fileName,
+    fileSize: item.fileSize,
+    createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
 }
