@@ -1,45 +1,26 @@
-# Current Feature: Code Editor (Monaco)
+# Current Feature
 
 <!-- Feature Name -->
 
-Add a Monaco-based `CodeEditor` component for code item types (snippets, commands), with macOS window styling and a copy button.
+_None — ready for the next feature._
 
 ## Status
 
 <!-- Not Started|In Progress|Completed -->
 
-In Progress
+Completed
 
 ## Goals
 
 <!-- Goals & requirements -->
 
-- Create a `CodeEditor` component built on Monaco Editor with a dark theme.
-- Use `CodeEditor` in place of `Textarea` for snippet and command content **only**; keep `Textarea` for notes, prompts, and other non-code types.
-- macOS-style window dots (red/yellow/green) at the top of the editor.
-- Quick copy button in the editor header.
-- Show the language in the editor header, next to the copy button.
-- Support both display (readonly) and edit modes.
-- Fluid height capped at a 400px max, with a theme-matched scrollbar.
+_None._
 
 ## Notes
 
 <!-- Any extra notes -->
 
-- Spec: `context/features/code-editor-spec.md`.
-- Editor consumers today: `ItemDrawer` (readonly display of `content`), `ItemEditForm` (edit mode), `NewItemDialog` (create). "Code" types are `snippet` and `command`; `snippet`/`command` also carry a `language` field.
-- No component/DOM unit tests per project standards — verify manually in the browser. No server-action/util changes expected, so likely no Vitest additions.
-
-### Implementation (done, on `feature/code-editor`)
-
-- New dep `@monaco-editor/react@^4.7.0` (Monaco itself loads from the jsdelivr CDN via the bundled loader — no webpack config, no `monaco-editor` install).
-- `src/components/items/CodeEditor.tsx` — `"use client"` Monaco wrapper. macOS traffic-light dots + language label + Copy button (Copy→Check for 1.5s) in a dark header; `vs-dark`-based `devstash-dark` theme with `#1e1e1e` surface and subtle white-alpha scrollbar sliders. Auto-height via `onDidContentSizeChange`, clamped 96–400px then scrolls. `readOnly` derived from `readOnly` prop OR absence of `onChange`. Free-text language → Monaco id alias map (js/ts/bash/yml/py/…). Options: no minimap, `wordWrap: off`, `automaticLayout`, folding/line-highlight/context-menu only when editable.
-- `src/lib/validations/item.ts` — `CODE_ITEM_TYPES = ["snippet", "command"]` + `isCodeItemType(name)` helper (trim + lowercase). +2 test cases in `item.test.ts`.
-- `src/lib/code-editor.ts` — `toMonacoLanguage(label)` (+ `LANGUAGE_ALIASES` table) extracted out of `CodeEditor.tsx` so the free-text-label → Monaco-id mapping is unit-testable. `src/lib/code-editor.test.ts` — 3 tests (blank → `plaintext`, alias resolution case/space-insensitive, unknown passthrough lower-cased). Height helpers (`clampHeight`/`estimateHeight`) stay in the component — trivial arithmetic tied to Monaco line-height constants, not worth a test.
-- `ItemDrawer.tsx` — readonly Content section renders `<CodeEditor readOnly>` for code types, keeps the `<pre>` for prompt/note; edit form's Content field renders `<CodeEditor onChange={setContent} language={language}>` for code types, keeps the `<textarea>` otherwise (`showCodeEditor` gate).
-- `NewItemDialog.tsx` — same `showCodeEditor` gate on the Content field.
-- Type-page Add button: `NewItemDialog` gained an optional `initialType` prop (defaults to `"snippet"`); `EMPTY` const replaced with an `emptyForm(type)` factory and the render-phase reset now re-seeds the form with `initialType` on every open/close transition. New `src/components/items/NewTypeItemButton.tsx` (`"use client"`) renders a `New <type>` button + a `NewItemDialog` pre-selected on that type. `/items/[type]/page.tsx` header restructured into a flex row and renders `<NewTypeItemButton>` when the URL type is one of `CREATE_ITEM_TYPES` (so `file` / `image` pages get no button).
-- `npm run test` (71 pass), `npm run lint`, `npm run build` — all pass. Browser-verified (Playwright, demo session): snippet drawer readonly editor (dots + TYPESCRIPT label + Copy + syntax highlight + line numbers + auto-height), edit mode → typed into Monaco → Save → persisted + re-rendered readonly, New Item dialog snippet shows the editor (IntelliSense works), prompt drawer still uses `<pre>`; `/items/command` "New Command" button opens the dialog with Command pre-selected + code editor shown, switching to Note swaps to a textarea and back to Snippet restores the editor, created a command end-to-end (5→6, list refreshed), no console errors. Re-seeded the dev DB afterward.
+_None._
 
 ## History
 
@@ -73,3 +54,4 @@ In Progress
 - Item Drawer — Edit Mode — `src/lib/validations/item.ts` (`updateItemSchema`, Zod v4) + tests. `updateItem(id, data)` in `src/lib/db/items.ts` (demo-user-scoped, ownership guard, wholesale tag replace). `src/actions/items.ts` (`"use server"` `updateItem` action) + tests. `ItemDrawer` gains `editing` state + `<ItemEditForm>` (type-specific fields, `sonner` toasts, inline `fieldErrors`). `ItemBrowser` `handleSaved` updates cache + `router.refresh()`. New dep `sonner@^2` + `src/components/ui/sonner.tsx` mounted in `src/app/layout.tsx`.
 - Item Delete — `deleteItem(id)` in `src/lib/db/items.ts` (demo-user-scoped `deleteMany` with ownership in the `WHERE`, returns `false` for a missing/foreign id; `ItemTag` cascades, collection `SetNull`). `deleteItem` server action in `src/actions/items.ts` (auth-gated, id-presence guard, no Zod — just an id; `false` → "Item not found.", throw → generic error, mirrors `updateItem`). New `src/components/ui/alert-dialog.tsx` — first AlertDialog in the project, hand-written on the unified `radix-ui` primitive (same pattern as `sheet.tsx`), `Action`/`Cancel` reuse `buttonVariants`. `ItemDrawer` — new `onDeleted` prop + `confirmingDelete`/`deleting` state (reset alongside the edit-mode reset); the `Trash2` `ActionButton` opens a controlled `AlertDialog` ("Delete this item?" + title + "can't be undone"), confirm calls the action with `summary.id`, shows a `sonner` `toast.success("Item deleted")` / `toast.error`, then fires `onDeleted`; dialog + `onOpenChange` locked while `deleting`. `ItemBrowser.handleDeleted` evicts the detail cache, `setOpen(false)`, `router.refresh()` so the card list + `force-dynamic` stats/sidebar counts drop the row. +5 unit tests for the action in `src/actions/items.test.ts` (unauthenticated, empty id, happy path, `false`→not-found, throw→generic). `npm run test` (55 pass), `npm run lint`, `npm run build` — all pass. Browser-verified (Playwright, demo session): trash → AlertDialog → Delete → toast, drawer closes, 18→17 items, Terminal Commands 4→3, item gone from Recent, no console errors; dev DB re-seeded afterward.
 - Item Create — Per `context/features/item-create-spec.md`. New `src/components/ui/dialog.tsx` — centered modal, hand-written on the unified `radix-ui` `Dialog` primitive (same pattern as `sheet.tsx` / `alert-dialog.tsx`). `src/components/items/NewItemDialog.tsx` — `"use client"` create form: pill-button type selector (`snippet`/`prompt`/`command`/`note`/`link`) that toggles type-conditional fields (Content for snippet/prompt/command/note, Language for snippet/command, URL for link; Title/Description/Tags always), inline `fieldErrors`, `sonner` toasts, render-phase form reset keyed on the `open` prop; client-side guard disables Submit on an empty title (or empty URL for a link); on success `toast.success("Item created")`, reset, close, `router.refresh()`. `TopBar` now owns `newItemOpen` state, enables the "New Item" button, and renders `<NewItemDialog>` ("New Collection" stays disabled — out of scope). `src/lib/validations/item.ts` — shared field helpers factored into an `itemFields` object (`updateItemSchema` now `z.object(itemFields)`); new `createItemSchema` = `type` enum (`CREATE_ITEM_TYPES`, exported, minus the Pro-only File/Image) + `itemFields`, with a `.refine` requiring a non-null `url` when `type === "link"` (path `["url"]`, reuses the "Enter a valid URL" message). Exports `CreateItemType`, `CreateItemInput`. `createItem(data)` in `src/lib/db/items.ts` — demo-user-scoped (`getDemoUserId`), resolves the type name → `ItemType` id (case-insensitive, system-or-user), `prisma.item.create` with `contentType: "text"` and connect-or-create tags (same shape as `updateItem`), returns fresh `ItemDetail`; `null` when no demo user or type unresolved. `createItem` server action in `src/actions/items.ts` — auth-gated, `createItemSchema.safeParse` (→ `fieldErrors` + "Please fix the highlighted fields."), maps `null`/throw to "Something went wrong creating the item.", mirrors `updateItem`. +11 unit tests. `npm run test` (66 pass), `npm run lint`, `npm run build` — all pass. Browser-verified (Playwright, demo session).
+- Code Editor (Monaco) — Per `context/features/code-editor-spec.md`. New dep `@monaco-editor/react@^4.7.0` (Monaco loads from the jsdelivr CDN via the bundled loader — no webpack config, no `monaco-editor` install). `src/components/items/CodeEditor.tsx` — `"use client"` Monaco wrapper: macOS traffic-light dots + language label + Copy button (Copy→Check for 1.5s) in a dark header; `vs-dark`-based `devstash-dark` theme (`#1e1e1e` surface, subtle white-alpha scrollbar sliders); auto-height via `editor.onDidContentSizeChange`, clamped 96–400px then scrolls; `readOnly` derived from the `readOnly` prop OR the absence of `onChange`; no minimap, `wordWrap: off`, `automaticLayout`, folding/line-highlight/context-menu only when editable. `src/lib/code-editor.ts` — `toMonacoLanguage(label)` + `LANGUAGE_ALIASES` (js/ts/bash/yml/py/c#/… → Monaco ids; blank → `plaintext`, unknown → passthrough lower-cased), extracted so it's unit-testable (`code-editor.test.ts`, 3 tests). `src/lib/validations/item.ts` — `CODE_ITEM_TYPES = ["snippet", "command"]` + `isCodeItemType(name)` (trim + lowercase); +2 tests in `item.test.ts`. `ItemDrawer.tsx` — readonly Content section and the edit form's Content field both render `<CodeEditor>` for code types (`showCodeEditor` gate), keeping the `<pre>` / `<textarea>` for prompt/note. `NewItemDialog.tsx` — same gate on the Content field; also gained an optional `initialType` prop (default `"snippet"`), `EMPTY` → `emptyForm(type)` factory, render-phase reset re-seeds `initialType` on every open/close. New `src/components/items/NewTypeItemButton.tsx` (`"use client"`) — a "New <type>" button that opens `<NewItemDialog initialType={type}>`; `/items/[type]/page.tsx` header restructured to a flex row and renders it when the URL type is in `CREATE_ITEM_TYPES` (no button on the Pro-only `file`/`image` pages). `npm run test` (71 pass), `npm run lint`, `npm run build` — all pass. Browser-verified (Playwright, demo session): snippet drawer readonly editor (dots + TYPESCRIPT label + Copy + highlight + line numbers + auto-height), edit → typed into Monaco → Save → persisted + re-rendered readonly, `/items/command` "New Command" button opens the dialog with Command pre-selected + editor shown, switching to Note swaps to a textarea and back restores the editor, created a command end-to-end, prompt drawer still uses `<pre>`, no console errors; dev DB re-seeded afterward.
