@@ -18,9 +18,10 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { ItemDetail, ItemWithType } from "@/lib/db/items";
 import { deleteItem, updateItem } from "@/actions/items";
-import { isCodeItemType } from "@/lib/validations/item";
+import { isCodeItemType, isMarkdownItemType } from "@/lib/validations/item";
 import { FALLBACK_ICON, palette, TYPE_ICON } from "@/lib/type-presentation";
 import { CodeEditor } from "@/components/items/CodeEditor";
+import { MarkdownEditor } from "@/components/items/MarkdownEditor";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -266,6 +267,8 @@ export function ItemDrawer({
                             language={detail.language}
                             readOnly
                           />
+                        ) : isMarkdownItemType(detail.type.name) ? (
+                          <MarkdownEditor value={detail.content} readOnly />
                         ) : (
                           <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-xs leading-relaxed">
                             <code>{detail.content}</code>
@@ -352,6 +355,7 @@ function ItemEditForm({
   const showContent = CONTENT_TYPES.includes(typeName);
   const showLanguage = LANGUAGE_TYPES.includes(typeName);
   const showCodeEditor = isCodeItemType(typeName);
+  const showMarkdownEditor = isMarkdownItemType(typeName);
   const showUrl = typeName === "link";
 
   const [title, setTitle] = useState(detail.title);
@@ -448,6 +452,8 @@ function ItemEditForm({
                 onChange={setContent}
                 language={language}
               />
+            ) : showMarkdownEditor ? (
+              <MarkdownEditor value={content} onChange={setContent} />
             ) : (
               <textarea
                 value={content}

@@ -10,10 +10,12 @@ import {
   CREATE_ITEM_TYPES,
   type CreateItemType,
   isCodeItemType,
+  isMarkdownItemType,
 } from "@/lib/validations/item";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CodeEditor } from "@/components/items/CodeEditor";
+import { MarkdownEditor } from "@/components/items/MarkdownEditor";
 import {
   Dialog,
   DialogContent,
@@ -80,6 +82,7 @@ export function NewItemDialog({
   const showContent = CONTENT_TYPES.includes(form.type);
   const showLanguage = LANGUAGE_TYPES.includes(form.type);
   const showCodeEditor = isCodeItemType(form.type);
+  const showMarkdownEditor = isMarkdownItemType(form.type);
   const showUrl = form.type === "link";
 
   const titleEmpty = form.title.trim().length === 0;
@@ -193,6 +196,11 @@ export function NewItemDialog({
                   value={form.content}
                   onChange={(next) => set("content", next)}
                   language={form.language}
+                />
+              ) : showMarkdownEditor ? (
+                <MarkdownEditor
+                  value={form.content}
+                  onChange={(next) => set("content", next)}
                 />
               ) : (
                 <textarea
