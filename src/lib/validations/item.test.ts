@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createItemSchema,
   isCodeItemType,
+  isMarkdownItemType,
   updateItemSchema,
 } from "@/lib/validations/item";
 
@@ -146,5 +147,21 @@ describe("isCodeItemType", () => {
     expect(isCodeItemType("prompt")).toBe(false);
     expect(isCodeItemType("link")).toBe(false);
     expect(isCodeItemType("")).toBe(false);
+  });
+});
+
+describe("isMarkdownItemType", () => {
+  it("is true for the prose types, case- and whitespace-insensitively", () => {
+    expect(isMarkdownItemType("prompt")).toBe(true);
+    expect(isMarkdownItemType("note")).toBe(true);
+    expect(isMarkdownItemType("  Prompt ")).toBe(true);
+    expect(isMarkdownItemType("NOTE")).toBe(true);
+  });
+
+  it("is false for non-prose types", () => {
+    expect(isMarkdownItemType("snippet")).toBe(false);
+    expect(isMarkdownItemType("command")).toBe(false);
+    expect(isMarkdownItemType("link")).toBe(false);
+    expect(isMarkdownItemType("")).toBe(false);
   });
 });

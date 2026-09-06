@@ -86,6 +86,16 @@ export function isCodeItemType(typeName: string): boolean {
   );
 }
 
+/** Item types whose content is prose — these get the `MarkdownEditor` instead of a textarea. */
+export const MARKDOWN_ITEM_TYPES = ["prompt", "note"] as const;
+
+/** True when an item type's content should render in the Markdown editor. */
+export function isMarkdownItemType(typeName: string): boolean {
+  return (MARKDOWN_ITEM_TYPES as readonly string[]).includes(
+    typeName.trim().toLowerCase(),
+  );
+}
+
 /**
  * Zod schema for the item create payload (`createItem` server action).
  *
