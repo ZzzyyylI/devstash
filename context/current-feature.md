@@ -1,38 +1,26 @@
-# Current Feature: Item Create
+# Current Feature
 
 <!-- Feature Name -->
 
-Add new items via a modal dialog, opened from the "New Item" button in the top bar.
+_None — ready for the next feature._
 
 ## Status
 
 <!-- Not Started|In Progress|Completed -->
 
-In Progress
+Completed
 
 ## Goals
 
 <!-- Goals & requirements -->
 
-- Modal built on the shadcn `Dialog` component, opened from the top bar "New Item" button
-- Type selector covering snippet, prompt, command, note, link
-- Type-conditional fields:
-  - All types: title (required), description, tags
-  - snippet / command: content, language
-  - prompt / note: content
-  - link: URL (required)
-- `createItem` server action in `src/actions/items.ts` with Zod validation
-- `createItem` query function in `src/lib/db/items.ts`
-- On success: toast, close the modal, refresh the view
+_None._
 
 ## Notes
 
 <!-- Any extra notes -->
 
-- Spec: `context/features/item-create-spec.md`
-- Mirror existing patterns from Item Drawer — Edit Mode: `updateItemSchema` in `src/lib/validations/item.ts`, the `updateItem` action/query pair, `sonner` toasts, inline `fieldErrors`, `router.refresh()` after mutation.
-- Demo-user-scoped like the other item queries (`getDemoUserId`); resolve `typeId` from the selected type name.
-- Add Vitest unit tests for the new schema, the `createItem` action, and any new validation helper in the same commit.
+_None._
 
 ## History
 
@@ -65,4 +53,5 @@ In Progress
 - Item Drawer — Right-side slide-in `Sheet` item detail view. `src/components/ui/sheet.tsx` (on unified `radix-ui` Dialog). `getItemDetail(id)` + `GET /api/items/[id]`. `src/components/items/ItemBrowser.tsx` (client wrapper, drawer state, fetch + cache) + `src/components/items/ItemDrawer.tsx`. `ItemsSection` + `items/[type]/page.tsx` delegate to `<ItemBrowser>`.
 - Item Drawer — Edit Mode — `src/lib/validations/item.ts` (`updateItemSchema`, Zod v4) + tests. `updateItem(id, data)` in `src/lib/db/items.ts` (demo-user-scoped, ownership guard, wholesale tag replace). `src/actions/items.ts` (`"use server"` `updateItem` action) + tests. `ItemDrawer` gains `editing` state + `<ItemEditForm>` (type-specific fields, `sonner` toasts, inline `fieldErrors`). `ItemBrowser` `handleSaved` updates cache + `router.refresh()`. New dep `sonner@^2` + `src/components/ui/sonner.tsx` mounted in `src/app/layout.tsx`.
 - Item Delete — `deleteItem(id)` in `src/lib/db/items.ts` (demo-user-scoped `deleteMany` with ownership in the `WHERE`, returns `false` for a missing/foreign id; `ItemTag` cascades, collection `SetNull`). `deleteItem` server action in `src/actions/items.ts` (auth-gated, id-presence guard, no Zod — just an id; `false` → "Item not found.", throw → generic error, mirrors `updateItem`). New `src/components/ui/alert-dialog.tsx` — first AlertDialog in the project, hand-written on the unified `radix-ui` primitive (same pattern as `sheet.tsx`), `Action`/`Cancel` reuse `buttonVariants`. `ItemDrawer` — new `onDeleted` prop + `confirmingDelete`/`deleting` state (reset alongside the edit-mode reset); the `Trash2` `ActionButton` opens a controlled `AlertDialog` ("Delete this item?" + title + "can't be undone"), confirm calls the action with `summary.id`, shows a `sonner` `toast.success("Item deleted")` / `toast.error`, then fires `onDeleted`; dialog + `onOpenChange` locked while `deleting`. `ItemBrowser.handleDeleted` evicts the detail cache, `setOpen(false)`, `router.refresh()` so the card list + `force-dynamic` stats/sidebar counts drop the row. +5 unit tests for the action in `src/actions/items.test.ts` (unauthenticated, empty id, happy path, `false`→not-found, throw→generic). `npm run test` (55 pass), `npm run lint`, `npm run build` — all pass. Browser-verified (Playwright, demo session): trash → AlertDialog → Delete → toast, drawer closes, 18→17 items, Terminal Commands 4→3, item gone from Recent, no console errors; dev DB re-seeded afterward.
+- Item Create — Per `context/features/item-create-spec.md`. New `src/components/ui/dialog.tsx` — centered modal, hand-written on the unified `radix-ui` `Dialog` primitive (same pattern as `sheet.tsx` / `alert-dialog.tsx`). `src/components/items/NewItemDialog.tsx` — `"use client"` create form: pill-button type selector (`snippet`/`prompt`/`command`/`note`/`link`) that toggles type-conditional fields (Content for snippet/prompt/command/note, Language for snippet/command, URL for link; Title/Description/Tags always), inline `fieldErrors`, `sonner` toasts, render-phase form reset keyed on the `open` prop; client-side guard disables Submit on an empty title (or empty URL for a link); on success `toast.success("Item created")`, reset, close, `router.refresh()`. `TopBar` now owns `newItemOpen` state, enables the "New Item" button, and renders `<NewItemDialog>` ("New Collection" stays disabled — out of scope). `src/lib/validations/item.ts` — shared field helpers factored into an `itemFields` object (`updateItemSchema` now `z.object(itemFields)`); new `createItemSchema` = `type` enum (`CREATE_ITEM_TYPES`, exported, minus the Pro-only File/Image) + `itemFields`, with a `.refine` requiring a non-null `url` when `type === "link"` (path `["url"]`, reuses the "Enter a valid URL" message). Exports `CreateItemType`, `CreateItemInput`. `createItem(data)` in `src/lib/db/items.ts` — demo-user-scoped (`getDemoUserId`), resolves the type name → `ItemType` id (case-insensitive, system-or-user), `prisma.item.create` with `contentType: "text"` and connect-or-create tags (same shape as `updateItem`), returns fresh `ItemDetail`; `null` when no demo user or type unresolved. `createItem` server action in `src/actions/items.ts` — auth-gated, `createItemSchema.safeParse` (→ `fieldErrors` + "Please fix the highlighted fields."), maps `null`/throw to "Something went wrong creating the item.", mirrors `updateItem`. +11 unit tests (`createItemSchema` in `item.test.ts`: shared-field normalisation, `type` required, link needs URL, link-with-URL ok, non-link no URL; `createItem` action in `items.test.ts`: unauth, invalid type → fieldErrors, link-without-URL → fieldErrors, normalised payload forwarded + fresh detail, `null`→generic, throw→generic). `npm run test` (66 pass), `npm run lint`, `npm run build` — all pass. Browser-verified (Playwright, demo session): New Item → snippet created (18→19 items, Snippet 4→5, content/language/tags persisted in drawer), link created with "Item created" toast, type switch toggles fields, malformed URL → inline "Enter a valid URL" + "Please fix the highlighted fields." toast with the dialog staying open, no console errors; dev DB re-seeded afterward.
 </content>
