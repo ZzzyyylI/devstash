@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getDemoUserId } from "@/lib/db/user";
-import type { UpdateItemInput } from "@/lib/validations/item";
+import type { CreateItemInput, UpdateItemInput } from "@/lib/validations/item";
 
 export interface ItemItemType {
   id: string;
@@ -197,6 +197,58 @@ export async function updateItem(
   });
 
   return getItemDetail(id);
+}
+
+/**
+ * Create an item for the demo user, then return its fresh {@link ItemDetail} so
+ * the "New Item" dialog can report success without a second request.
+ *
+ * Scoped to the demo user like the rest of this file. The `type` name (validated
+ * to one of the system types by `createItemSchema`) is resolved to its
+ * `ItemType` id; returns `null` when there is no demo user or the type can't be
+ * found (the caller treats that as a generic failure). Tags are connect-or-created
+ * against the user's tag set, same as `updateItem`.
+ */
+export async function createItem(
+  data: CreateItemInput,
+): Promise<ItemDetail | null> {
+  const userId = await getDemoUserId();
+  if (!userId) return null;
+
+  const type = await prisma.itemType.findFirst({
+    where: {
+      name: { equals: data.type, mode: "insensitive" },
+      OR: [{ isSystem: true }, { userId }],
+    },
+    select: { id: true },
+  });
+  if (!type) return null;
+
+  const created = await prisma.item.create({
+    data: {
+      title: data.title,
+      description: data.description,
+      content: data.content,
+      url: data.url,
+      language: data.language,
+      contentType: "text",
+      userId,
+      typeId: type.id,
+      tags: {
+        create: data.tags.map((name) => ({
+          tag: {
+            connectOrCreate: {
+              where: { userId_name: { userId, name } },
+              create: { name, userId },
+            },
+          },
+        })),
+      },
+    },
+    select: { id: true },
+  });
+
+  return getItemDetail(created.id);
 }
 
 /**

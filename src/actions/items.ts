@@ -2,15 +2,53 @@
 
 import { auth } from "@/auth";
 import {
+  createItem as createItemQuery,
   deleteItem as deleteItemQuery,
   updateItem as updateItemQuery,
   type ItemDetail,
 } from "@/lib/db/items";
-import { updateItemSchema } from "@/lib/validations/item";
+import { createItemSchema, updateItemSchema } from "@/lib/validations/item";
 
 type ActionResult<T> =
   | { success: true; data: T }
   | { success: false; error: string; fieldErrors?: Record<string, string[]> };
+
+/**
+ * Create an item from the "New Item" dialog.
+ *
+ * Validates the payload with Zod (source of truth — the form only does a light
+ * client-side guard), requires a signed-in session, and delegates type
+ * resolution + the write to `createItem` in `src/lib/db/items.ts` (demo-user
+ * scoped, like the rest of the data layer). Returns the fresh `ItemDetail`.
+ */
+export async function createItem(
+  input: unknown,
+): Promise<ActionResult<ItemDetail>> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, error: "You must be signed in to create items." };
+  }
+
+  const parsed = createItemSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: "Please fix the highlighted fields.",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  try {
+    const created = await createItemQuery(parsed.data);
+    if (!created) {
+      return { success: false, error: "Something went wrong creating the item." };
+    }
+    return { success: true, data: created };
+  } catch (error) {
+    console.error("createItem action failed", error);
+    return { success: false, error: "Something went wrong creating the item." };
+  }
+}
 
 /**
  * Update an item from the drawer's edit form.

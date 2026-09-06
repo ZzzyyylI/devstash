@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { updateItemSchema } from "@/lib/validations/item";
+import { createItemSchema, updateItemSchema } from "@/lib/validations/item";
 
 const base = {
   title: "My item",
@@ -78,5 +78,53 @@ describe("updateItemSchema", () => {
       language: null,
       tags: [],
     });
+  });
+});
+
+describe("createItemSchema", () => {
+  const createBase = { ...base, type: "snippet" as const };
+
+  it("normalises the shared fields like updateItemSchema", () => {
+    const parsed = createItemSchema.parse({
+      ...createBase,
+      title: "  Hello  ",
+      tags: [" react ", "react"],
+    });
+    expect(parsed).toMatchObject({ title: "Hello", tags: ["react"] });
+  });
+
+  it("requires a valid type", () => {
+    const result = createItemSchema.safeParse({ ...createBase, type: "widget" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.type?.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("requires a URL when the type is link", () => {
+    const result = createItemSchema.safeParse({
+      ...createBase,
+      type: "link",
+      url: "",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.url?.[0]).toMatch(/valid URL/i);
+    }
+  });
+
+  it("accepts a link that carries a URL", () => {
+    const parsed = createItemSchema.parse({
+      ...createBase,
+      type: "link",
+      url: "https://example.com",
+    });
+    expect(parsed.url).toBe("https://example.com");
+  });
+
+  it("does not require a URL for non-link types", () => {
+    expect(
+      createItemSchema.parse({ ...createBase, type: "note", url: "" }).url,
+    ).toBeNull();
   });
 });

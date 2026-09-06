@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { FolderPlus, PanelLeft, Plus, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NewItemDialog } from "@/components/items/NewItemDialog";
 
 interface TopBarProps {
   /** Opens the mobile navigation drawer. */
@@ -13,10 +15,12 @@ interface TopBarProps {
 }
 
 /**
- * Dashboard top action bar. The search field and New buttons are display only
- * for now — only the sidebar toggle is wired up in phase 2.
+ * Dashboard top action bar. The "New Item" button opens the create-item modal;
+ * search and "New Collection" are still display only.
  */
 export function TopBar({ onOpenSidebar, onToggleSidebar }: TopBarProps) {
+  const [newItemOpen, setNewItemOpen] = useState(false);
+
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
       <Button
@@ -57,11 +61,13 @@ export function TopBar({ onOpenSidebar, onToggleSidebar }: TopBarProps) {
           <FolderPlus />
           New Collection
         </Button>
-        <Button size="lg" disabled>
+        <Button size="lg" onClick={() => setNewItemOpen(true)}>
           <Plus />
           New Item
         </Button>
       </div>
+
+      <NewItemDialog open={newItemOpen} onOpenChange={setNewItemOpen} />
     </header>
   );
 }
