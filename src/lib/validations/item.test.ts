@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { createItemSchema, updateItemSchema } from "@/lib/validations/item";
+import {
+  createItemSchema,
+  isCodeItemType,
+  updateItemSchema,
+} from "@/lib/validations/item";
 
 const base = {
   title: "My item",
@@ -126,5 +130,21 @@ describe("createItemSchema", () => {
     expect(
       createItemSchema.parse({ ...createBase, type: "note", url: "" }).url,
     ).toBeNull();
+  });
+});
+
+describe("isCodeItemType", () => {
+  it("is true for the code types, case- and whitespace-insensitively", () => {
+    expect(isCodeItemType("snippet")).toBe(true);
+    expect(isCodeItemType("command")).toBe(true);
+    expect(isCodeItemType("  Snippet ")).toBe(true);
+    expect(isCodeItemType("COMMAND")).toBe(true);
+  });
+
+  it("is false for non-code types", () => {
+    expect(isCodeItemType("note")).toBe(false);
+    expect(isCodeItemType("prompt")).toBe(false);
+    expect(isCodeItemType("link")).toBe(false);
+    expect(isCodeItemType("")).toBe(false);
   });
 });

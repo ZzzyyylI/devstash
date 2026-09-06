@@ -3,7 +3,12 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { getItemsByType, getItemTypeByName } from "@/lib/db/items";
+import {
+  CREATE_ITEM_TYPES,
+  type CreateItemType,
+} from "@/lib/validations/item";
 import { ItemBrowser } from "@/components/items/ItemBrowser";
+import { NewTypeItemButton } from "@/components/items/NewTypeItemButton";
 
 // Reads live data from Neon — don't statically cache it at build time.
 export const dynamic = "force-dynamic";
@@ -26,6 +31,11 @@ export default async function ItemsByTypePage({
 
   const items = await getItemsByType(itemType.id);
 
+  const typeKey = itemType.name.toLowerCase();
+  const creatableType = (CREATE_ITEM_TYPES as readonly string[]).includes(typeKey)
+    ? (typeKey as CreateItemType)
+    : null;
+
   return (
     <div className="mx-auto max-w-6xl p-6">
       <Link
@@ -35,10 +45,15 @@ export default async function ItemsByTypePage({
         <ArrowLeft className="size-4" />
         Back to dashboard
       </Link>
-      <h1 className="mt-4 text-2xl font-semibold capitalize">{itemType.name}</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {items.length} {items.length === 1 ? "item" : "items"} in this type
-      </p>
+      <div className="mt-4 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold capitalize">{itemType.name}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {items.length} {items.length === 1 ? "item" : "items"} in this type
+          </p>
+        </div>
+        {creatableType && <NewTypeItemButton type={creatableType} />}
+      </div>
 
       {items.length === 0 ? (
         <p className="mt-10 text-sm text-muted-foreground">

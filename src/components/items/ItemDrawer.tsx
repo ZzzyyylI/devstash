@@ -18,7 +18,9 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { ItemDetail, ItemWithType } from "@/lib/db/items";
 import { deleteItem, updateItem } from "@/actions/items";
+import { isCodeItemType } from "@/lib/validations/item";
 import { FALLBACK_ICON, palette, TYPE_ICON } from "@/lib/type-presentation";
+import { CodeEditor } from "@/components/items/CodeEditor";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -258,9 +260,17 @@ export function ItemDrawer({
                   <>
                     {detail.content && (
                       <Section title="Content">
-                        <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-xs leading-relaxed">
-                          <code>{detail.content}</code>
-                        </pre>
+                        {isCodeItemType(detail.type.name) ? (
+                          <CodeEditor
+                            value={detail.content}
+                            language={detail.language}
+                            readOnly
+                          />
+                        ) : (
+                          <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-xs leading-relaxed">
+                            <code>{detail.content}</code>
+                          </pre>
+                        )}
                       </Section>
                     )}
 
@@ -341,6 +351,7 @@ function ItemEditForm({
   const typeName = detail.type.name.toLowerCase();
   const showContent = CONTENT_TYPES.includes(typeName);
   const showLanguage = LANGUAGE_TYPES.includes(typeName);
+  const showCodeEditor = isCodeItemType(typeName);
   const showUrl = typeName === "link";
 
   const [title, setTitle] = useState(detail.title);
@@ -431,12 +442,23 @@ function ItemEditForm({
 
         {showContent && (
           <Field label="Content" error={fieldErrors.content}>
-            <textarea
-              value={content}
-              onChange={(event) => setContent(event.target.value)}
-              rows={8}
-              className={cn(textareaClass, "font-mono text-xs leading-relaxed")}
-            />
+            {showCodeEditor ? (
+              <CodeEditor
+                value={content}
+                onChange={setContent}
+                language={language}
+              />
+            ) : (
+              <textarea
+                value={content}
+                onChange={(event) => setContent(event.target.value)}
+                rows={8}
+                className={cn(
+                  textareaClass,
+                  "font-mono text-xs leading-relaxed",
+                )}
+              />
+            )}
           </Field>
         )}
 

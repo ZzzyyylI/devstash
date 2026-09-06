@@ -9,9 +9,11 @@ import { createItem } from "@/actions/items";
 import {
   CREATE_ITEM_TYPES,
   type CreateItemType,
+  isCodeItemType,
 } from "@/lib/validations/item";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CodeEditor } from "@/components/items/CodeEditor";
 import {
   Dialog,
   DialogContent,
@@ -26,49 +28,58 @@ const CONTENT_TYPES: CreateItemType[] = ["snippet", "prompt", "command", "note"]
 /** Item types that get a Language input. */
 const LANGUAGE_TYPES: CreateItemType[] = ["snippet", "command"];
 
-const EMPTY = {
-  type: "snippet" as CreateItemType,
-  title: "",
-  description: "",
-  content: "",
-  language: "",
-  url: "",
-  tagsInput: "",
-};
+function emptyForm(type: CreateItemType) {
+  return {
+    type,
+    title: "",
+    description: "",
+    content: "",
+    language: "",
+    url: "",
+    tagsInput: "",
+  };
+}
 
 interface NewItemDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Type to pre-select each time the dialog opens. Defaults to "snippet". */
+  initialType?: CreateItemType;
 }
 
 /**
- * "New Item" modal, opened from the top bar. A type selector switches which
- * fields show; the server action re-validates everything, so the only
- * client-side guards are disabling Submit on an empty title (or an empty URL for
- * a link). On success it toasts, resets, closes, and refreshes the route so the
- * new item shows up in the server-rendered lists.
+ * "New Item" modal, opened from the top bar or a type page's Add button. A type
+ * selector switches which fields show (snippet / command get the code editor);
+ * the server action re-validates everything, so the only client-side guards are
+ * disabling Submit on an empty title (or an empty URL for a link). On success it
+ * toasts, resets, closes, and refreshes the route so the new item shows up in
+ * the server-rendered lists.
  */
-export function NewItemDialog({ open, onOpenChange }: NewItemDialogProps) {
+export function NewItemDialog({
+  open,
+  onOpenChange,
+  initialType = "snippet",
+}: NewItemDialogProps) {
   const router = useRouter();
 
-  const [form, setForm] = useState(EMPTY);
+  const [form, setForm] = useState(() => emptyForm(initialType));
   const [pending, setPending] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
 
-  // Reset the form whenever the dialog transitions closed (render-phase reset per
-  // the React "adjusting state on prop change" pattern).
+  // Reset the form (to a blank one pre-selected on `initialType`) whenever the
+  // dialog opens or closes — render-phase reset per the React "adjusting state on
+  // prop change" pattern.
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (!open) {
-      setForm(EMPTY);
-      setFieldErrors({});
-      setPending(false);
-    }
+    setForm(emptyForm(initialType));
+    setFieldErrors({});
+    setPending(false);
   }
 
   const showContent = CONTENT_TYPES.includes(form.type);
   const showLanguage = LANGUAGE_TYPES.includes(form.type);
+  const showCodeEditor = isCodeItemType(form.type);
   const showUrl = form.type === "link";
 
   const titleEmpty = form.title.trim().length === 0;
@@ -108,7 +119,7 @@ export function NewItemDialog({ open, onOpenChange }: NewItemDialogProps) {
     }
 
     toast.success("Item created");
-    setForm(EMPTY);
+    setForm(emptyForm(initialType));
     onOpenChange(false);
     router.refresh();
   }
@@ -177,12 +188,23 @@ export function NewItemDialog({ open, onOpenChange }: NewItemDialogProps) {
 
           {showContent && (
             <Field label="Content" error={fieldErrors.content}>
-              <textarea
-                value={form.content}
-                onChange={(event) => set("content", event.target.value)}
-                rows={8}
-                className={cn(textareaClass, "font-mono text-xs leading-relaxed")}
-              />
+              {showCodeEditor ? (
+                <CodeEditor
+                  value={form.content}
+                  onChange={(next) => set("content", next)}
+                  language={form.language}
+                />
+              ) : (
+                <textarea
+                  value={form.content}
+                  onChange={(event) => set("content", event.target.value)}
+                  rows={8}
+                  className={cn(
+                    textareaClass,
+                    "font-mono text-xs leading-relaxed",
+                  )}
+                />
+              )}
             </Field>
           )}
 
