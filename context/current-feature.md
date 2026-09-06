@@ -2,41 +2,25 @@
 
 <!-- Feature Name -->
 
-Item Delete
+_None — ready for the next feature._
 
 ## Status
 
 <!-- Not Started|In Progress|Completed -->
 
-In Progress
+Completed
 
 ## Goals
 
 <!-- Goals & requirements -->
 
-- The trash button in the item drawer's action bar deletes the item.
-- Show a ShadCN confirmation dialog (AlertDialog) before deleting — no accidental
-  deletes.
-- On success show a `sonner` toast, close the drawer, and refresh the underlying
-  card list so the deleted item disappears.
-- Server-side: a `deleteItem` server action (auth-gated, Zod-free — just an id)
-  delegating to a demo-user-scoped `deleteItem` query with an ownership guard.
-- `ItemTag` join rows cascade-delete with the item (FK `onDelete: Cascade`); the
-  collection link is `SetNull` so the collection is untouched.
+_None._
 
 ## Notes
 
 <!-- Any extra notes -->
 
-- New `src/components/ui/alert-dialog.tsx` — first AlertDialog in the project,
-  hand-written on the repo's unified `radix-ui` primitive (same pattern as
-  `sheet.tsx`).
-- Unit tests for the new action in `src/actions/items.test.ts` (55 pass, +5).
-- `npm run test` / `npm run lint` / `npm run build` all pass.
-- Browser-verified (Playwright, demo session): trash button → AlertDialog →
-  Delete → "Item deleted" toast, drawer closes, card list + stats + sidebar
-  counts refresh (18→17 items, Terminal Commands 4→3), no console errors. Dev DB
-  re-seeded afterwards.
+_None._
 
 ## History
 
@@ -68,5 +52,5 @@ In Progress
 - Item Listing — Three-Column Grid — `/items/[type]/page.tsx` grid `sm:grid-cols-2 lg:grid-cols-3`.
 - Item Drawer — Right-side slide-in `Sheet` item detail view. `src/components/ui/sheet.tsx` (on unified `radix-ui` Dialog). `getItemDetail(id)` + `GET /api/items/[id]`. `src/components/items/ItemBrowser.tsx` (client wrapper, drawer state, fetch + cache) + `src/components/items/ItemDrawer.tsx`. `ItemsSection` + `items/[type]/page.tsx` delegate to `<ItemBrowser>`.
 - Item Drawer — Edit Mode — `src/lib/validations/item.ts` (`updateItemSchema`, Zod v4) + tests. `updateItem(id, data)` in `src/lib/db/items.ts` (demo-user-scoped, ownership guard, wholesale tag replace). `src/actions/items.ts` (`"use server"` `updateItem` action) + tests. `ItemDrawer` gains `editing` state + `<ItemEditForm>` (type-specific fields, `sonner` toasts, inline `fieldErrors`). `ItemBrowser` `handleSaved` updates cache + `router.refresh()`. New dep `sonner@^2` + `src/components/ui/sonner.tsx` mounted in `src/app/layout.tsx`.
+- Item Delete — `deleteItem(id)` in `src/lib/db/items.ts` (demo-user-scoped `deleteMany` with ownership in the `WHERE`, returns `false` for a missing/foreign id; `ItemTag` cascades, collection `SetNull`). `deleteItem` server action in `src/actions/items.ts` (auth-gated, id-presence guard, no Zod — just an id; `false` → "Item not found.", throw → generic error, mirrors `updateItem`). New `src/components/ui/alert-dialog.tsx` — first AlertDialog in the project, hand-written on the unified `radix-ui` primitive (same pattern as `sheet.tsx`), `Action`/`Cancel` reuse `buttonVariants`. `ItemDrawer` — new `onDeleted` prop + `confirmingDelete`/`deleting` state (reset alongside the edit-mode reset); the `Trash2` `ActionButton` opens a controlled `AlertDialog` ("Delete this item?" + title + "can't be undone"), confirm calls the action with `summary.id`, shows a `sonner` `toast.success("Item deleted")` / `toast.error`, then fires `onDeleted`; dialog + `onOpenChange` locked while `deleting`. `ItemBrowser.handleDeleted` evicts the detail cache, `setOpen(false)`, `router.refresh()` so the card list + `force-dynamic` stats/sidebar counts drop the row. +5 unit tests for the action in `src/actions/items.test.ts` (unauthenticated, empty id, happy path, `false`→not-found, throw→generic). `npm run test` (55 pass), `npm run lint`, `npm run build` — all pass. Browser-verified (Playwright, demo session): trash → AlertDialog → Delete → toast, drawer closes, 18→17 items, Terminal Commands 4→3, item gone from Recent, no console errors; dev DB re-seeded afterward.
 </content>
-</invoke>
