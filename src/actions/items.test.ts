@@ -102,6 +102,44 @@ describe("createItem action", () => {
     expect(result).toEqual({ success: true, data: detail });
   });
 
+  it("forwards the upload fields for a file item", async () => {
+    const detail = { id: "item_2", title: "Spec.pdf" };
+    createItemQuery.mockResolvedValue(detail);
+
+    const result = await createItem({
+      type: "file",
+      title: "Spec.pdf",
+      description: "",
+      content: "",
+      language: "",
+      url: "",
+      tags: [],
+      fileKey: "uploads/user_1/file/abc.pdf",
+      fileName: "Spec.pdf",
+      fileSize: 4096,
+    });
+
+    expect(createItemQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "file",
+        fileKey: "uploads/user_1/file/abc.pdf",
+        fileName: "Spec.pdf",
+        fileSize: 4096,
+      }),
+    );
+    expect(result).toEqual({ success: true, data: detail });
+  });
+
+  it("rejects a file item with no upload", async () => {
+    const result = await createItem({ ...validCreate, type: "file", content: "" });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.fieldErrors?.fileKey?.length).toBeGreaterThan(0);
+    }
+    expect(createItemQuery).not.toHaveBeenCalled();
+  });
+
   it("maps a null query result to a generic error", async () => {
     createItemQuery.mockResolvedValue(null);
 

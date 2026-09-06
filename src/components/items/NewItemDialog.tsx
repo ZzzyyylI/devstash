@@ -10,12 +10,14 @@ import {
   CREATE_ITEM_TYPES,
   type CreateItemType,
   isCodeItemType,
+  isFileItemType,
   isMarkdownItemType,
 } from "@/lib/validations/item";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CodeEditor } from "@/components/items/CodeEditor";
 import { MarkdownEditor } from "@/components/items/MarkdownEditor";
+import { FileUpload, type UploadedFile } from "@/components/items/FileUpload";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +41,7 @@ function emptyForm(type: CreateItemType) {
     language: "",
     url: "",
     tagsInput: "",
+    file: null as UploadedFile | null,
   };
 }
 
@@ -79,6 +82,7 @@ export function NewItemDialog({
     setPending(false);
   }
 
+  const showFileUpload = isFileItemType(form.type);
   const showContent = CONTENT_TYPES.includes(form.type);
   const showLanguage = LANGUAGE_TYPES.includes(form.type);
   const showCodeEditor = isCodeItemType(form.type);
@@ -87,7 +91,11 @@ export function NewItemDialog({
 
   const titleEmpty = form.title.trim().length === 0;
   const urlEmpty = form.url.trim().length === 0;
-  const submitDisabled = pending || titleEmpty || (showUrl && urlEmpty);
+  const submitDisabled =
+    pending ||
+    titleEmpty ||
+    (showUrl && urlEmpty) ||
+    (showFileUpload && !form.file);
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -111,6 +119,9 @@ export function NewItemDialog({
       content: showContent ? form.content : null,
       language: showLanguage ? form.language : null,
       url: showUrl ? form.url : null,
+      fileKey: showFileUpload ? (form.file?.key ?? null) : null,
+      fileName: showFileUpload ? (form.file?.name ?? null) : null,
+      fileSize: showFileUpload ? (form.file?.size ?? null) : null,
     });
 
     setPending(false);
@@ -138,7 +149,8 @@ export function NewItemDialog({
         <DialogHeader className="border-b border-border p-6">
           <DialogTitle>New item</DialogTitle>
           <DialogDescription>
-            Add a snippet, prompt, command, note, or link to your stash.
+            Add a snippet, prompt, command, note, link, file, or image to your
+            stash.
           </DialogDescription>
         </DialogHeader>
 
@@ -188,6 +200,20 @@ export function NewItemDialog({
               className={textareaClass}
             />
           </Field>
+
+          {showFileUpload && (
+            <Field
+              label={form.type === "image" ? "Image" : "File"}
+              error={fieldErrors.fileKey}
+            >
+              <FileUpload
+                kind={form.type === "image" ? "image" : "file"}
+                value={form.file}
+                onChange={(next) => set("file", next)}
+                disabled={pending}
+              />
+            </Field>
+          )}
 
           {showContent && (
             <Field label="Content" error={fieldErrors.content}>
