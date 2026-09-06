@@ -10,6 +10,14 @@ import { ImageCard } from "@/components/dashboard/ImageCard";
 import { ItemRow } from "@/components/dashboard/ItemRow";
 import { FileRow } from "@/components/dashboard/FileRow";
 import { ItemDrawer, type ItemDetailJson } from "@/components/items/ItemDrawer";
+import { CopyButton } from "@/components/items/CopyButton";
+
+/** The text a card's quick-copy button copies: the URL for links, else the body. */
+function copyableText(item: ItemWithType): string | null {
+  const value =
+    item.type.name.toLowerCase() === "link" ? item.url : item.content;
+  return value && value.trim() ? value : null;
+}
 
 interface ItemBrowserProps {
   items: ItemWithType[];
@@ -86,6 +94,8 @@ export function ItemBrowser({ items, layout }: ItemBrowserProps) {
               ...prev,
               title: updated.title,
               description: updated.description,
+              content: updated.content,
+              url: updated.url,
               isFavorite: updated.isFavorite,
               isPinned: updated.isPinned,
               type: updated.type,
@@ -119,28 +129,59 @@ export function ItemBrowser({ items, layout }: ItemBrowserProps) {
             : "grid gap-4 sm:grid-cols-2 lg:grid-cols-3",
         )}
       >
-        {items.map((item) =>
-          layout === "files" ? (
+        {items.map((item) => {
+          if (layout === "files") {
             // `FileRow` owns a download link, so it can't be nested in a
             // <button> — it takes the open handler directly instead.
-            <FileRow key={item.id} item={item} onOpen={() => select(item)} />
-          ) : (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => select(item)}
-              className="block h-full w-full cursor-pointer rounded-xl text-left transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {layout === "list" ? (
-                <ItemRow item={item} />
-              ) : layout === "gallery" ? (
+            return (
+              <FileRow key={item.id} item={item} onOpen={() => select(item)} />
+            );
+          }
+
+          if (layout === "gallery") {
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => select(item)}
+                className="block h-full w-full cursor-pointer rounded-xl text-left transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
                 <ImageCard item={item} />
-              ) : (
-                <ItemCard item={item} />
+              </button>
+            );
+          }
+
+          // grid / list: a "stretched link" card (like `FileRow`) so the
+          // quick-copy button isn't nested inside the drawer trigger.
+          const copyText = copyableText(item);
+          return (
+            <div
+              key={item.id}
+              className="group relative h-full cursor-pointer rounded-xl transition-shadow hover:shadow-md"
+            >
+              <button
+                type="button"
+                onClick={() => select(item)}
+                aria-label={`Open ${item.title}`}
+                className="absolute inset-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+              <div className="pointer-events-none relative h-full">
+                {layout === "list" ? (
+                  <ItemRow item={item} />
+                ) : (
+                  <ItemCard item={item} />
+                )}
+              </div>
+              {copyText && (
+                <CopyButton
+                  text={copyText}
+                  label={`Copy ${item.title}`}
+                  className="pointer-events-auto absolute bottom-3 right-3 z-10 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+                />
               )}
-            </button>
-          ),
-        )}
+            </div>
+          );
+        })}
       </div>
 
       <ItemDrawer
