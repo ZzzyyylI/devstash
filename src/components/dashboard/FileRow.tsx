@@ -11,15 +11,7 @@ import type { ComponentType, SVGProps } from "react";
 
 import type { ItemWithType } from "@/lib/db/items";
 import { extensionOf, formatBytes } from "@/lib/file-constraints";
-
-/** Format a date as e.g. "Jan 15, 2026". */
-function formatUploadDate(date: Date): string {
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
+import { formatMediumDate } from "@/lib/format-date";
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -91,7 +83,7 @@ export function FileRow({
       <div className="pointer-events-none relative flex items-center gap-4 pl-12 text-xs text-muted-foreground sm:pl-0">
         <span className="tabular-nums">{formatBytes(item.fileSize)}</span>
         <span className="whitespace-nowrap">
-          {formatUploadDate(item.createdAt)}
+          {formatMediumDate(item.createdAt)}
         </span>
         <a
           href={`/api/files/${item.id}?download=1`}

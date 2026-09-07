@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
-import { getItemTypesWithCounts } from "@/lib/db/items";
+import { getItemTypesWithCounts } from "@/lib/db/item-types";
 import { getSidebarCollections } from "@/lib/db/collections";
 
 // The sidebar reads live data from Neon — don't statically cache it at build time.

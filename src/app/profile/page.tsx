@@ -5,6 +5,7 @@ import { ArrowLeft, BadgeCheck, Calendar } from "lucide-react";
 import { auth } from "@/auth";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { getProfileUser, getProfileStats } from "@/lib/db/profile";
+import { formatLongDate } from "@/lib/format-date";
 import { ProfileStats } from "@/components/profile/ProfileStats";
 import { ChangePasswordForm } from "@/components/profile/ChangePasswordForm";
 import { DeleteAccountDialog } from "@/components/profile/DeleteAccountDialog";
@@ -25,11 +26,7 @@ export default async function ProfilePage() {
   ]);
   if (!user) redirect("/sign-in?callbackUrl=/profile");
 
-  const memberSince = user.createdAt.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  const memberSince = formatLongDate(user.createdAt);
 
   return (
     <main className="mx-auto max-w-2xl p-6">

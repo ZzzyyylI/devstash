@@ -6,18 +6,15 @@ import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import { createItem } from "@/actions/items";
-import {
-  CREATE_ITEM_TYPES,
-  type CreateItemType,
-  isCodeItemType,
-  isFileItemType,
-  isMarkdownItemType,
-} from "@/lib/validations/item";
+import { CREATE_ITEM_TYPES, type CreateItemType } from "@/lib/validations/item";
+import { itemTypeFields } from "@/lib/item-type-fields";
+import { parseTagsInput } from "@/lib/tags";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CodeEditor } from "@/components/items/CodeEditor";
-import { MarkdownEditor } from "@/components/items/MarkdownEditor";
 import { FileUpload, type UploadedFile } from "@/components/items/FileUpload";
+import { Field } from "@/components/items/item-form/Field";
+import { textareaClass } from "@/components/items/item-form/field-styles";
+import { ItemContentField } from "@/components/items/item-form/ItemContentField";
 import {
   Dialog,
   DialogContent,
@@ -26,11 +23,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
-/** Item types that get a Content textarea. */
-const CONTENT_TYPES: CreateItemType[] = ["snippet", "prompt", "command", "note"];
-/** Item types that get a Language input. */
-const LANGUAGE_TYPES: CreateItemType[] = ["snippet", "command"];
 
 function emptyForm(type: CreateItemType) {
   return {
@@ -82,12 +74,9 @@ export function NewItemDialog({
     setPending(false);
   }
 
-  const showFileUpload = isFileItemType(form.type);
-  const showContent = CONTENT_TYPES.includes(form.type);
-  const showLanguage = LANGUAGE_TYPES.includes(form.type);
-  const showCodeEditor = isCodeItemType(form.type);
-  const showMarkdownEditor = isMarkdownItemType(form.type);
-  const showUrl = form.type === "link";
+  const { showFileUpload, showContent, showLanguage, showUrl } = itemTypeFields(
+    form.type,
+  );
 
   const titleEmpty = form.title.trim().length === 0;
   const urlEmpty = form.url.trim().length === 0;
@@ -112,10 +101,7 @@ export function NewItemDialog({
       type: form.type,
       title: form.title,
       description: form.description,
-      tags: form.tagsInput
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter(Boolean),
+      tags: parseTagsInput(form.tagsInput),
       content: showContent ? form.content : null,
       language: showLanguage ? form.language : null,
       url: showUrl ? form.url : null,
@@ -216,30 +202,13 @@ export function NewItemDialog({
           )}
 
           {showContent && (
-            <Field label="Content" error={fieldErrors.content}>
-              {showCodeEditor ? (
-                <CodeEditor
-                  value={form.content}
-                  onChange={(next) => set("content", next)}
-                  language={form.language}
-                />
-              ) : showMarkdownEditor ? (
-                <MarkdownEditor
-                  value={form.content}
-                  onChange={(next) => set("content", next)}
-                />
-              ) : (
-                <textarea
-                  value={form.content}
-                  onChange={(event) => set("content", event.target.value)}
-                  rows={8}
-                  className={cn(
-                    textareaClass,
-                    "font-mono text-xs leading-relaxed",
-                  )}
-                />
-              )}
-            </Field>
+            <ItemContentField
+              typeName={form.type}
+              value={form.content}
+              onChange={(next) => set("content", next)}
+              language={form.language}
+              error={fieldErrors.content}
+            />
           )}
 
           {showLanguage && (
@@ -290,33 +259,5 @@ export function NewItemDialog({
         </form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-const textareaClass =
-  "w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive dark:bg-input/30";
-
-function Field({
-  label,
-  hint,
-  error,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  error?: string[];
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-baseline justify-between gap-2">
-        <label className="text-sm font-medium">{label}</label>
-        {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
-      </div>
-      {children}
-      {error && error.length > 0 && (
-        <p className="text-xs text-destructive">{error[0]}</p>
-      )}
-    </div>
   );
 }

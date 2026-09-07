@@ -2,11 +2,7 @@ import Image from "next/image";
 import { Pin, Star } from "lucide-react";
 
 import type { ItemWithType } from "@/lib/db/items";
-
-/** Format a date as e.g. "Jan 15". */
-function formatShortDate(date: Date): string {
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
+import { formatShortDate } from "@/lib/format-date";
 
 /**
  * A gallery thumbnail card for an image item. The thumbnail is served inline by
