@@ -2,25 +2,40 @@
 
 <!-- Feature Name -->
 
-_None — ready for the next feature._
+Collections Pages — List & Detail
 
 ## Status
 
 <!-- Not Started|In Progress|Completed -->
 
-Completed
+In Progress
 
 ## Goals
 
 <!-- Goals & requirements -->
 
-_None._
+- Replace the `/collections` placeholder page with a real list view: a responsive grid of the demo user's collections rendered with the existing `CollectionCard`.
+- Add a `/collections/[id]` detail page that lists the items in that collection, reusing the existing item cards via `ItemBrowser` (`grid` layout). Include the back link + header + live count, mirroring `/items/[type]`.
+- Make every `CollectionCard` link to its `/collections/[id]` detail page.
+- Point the sidebar's "View all collections" link at the real `/collections` page (already the href — just confirm it lands on the built-out page).
+- Make the sidebar's Favorites/Recent collection entries link to their `/collections/[id]` detail page too.
+- Unknown / foreign collection id on the detail page → `notFound()`.
 
 ## Notes
 
 <!-- Any extra notes -->
 
-_None._
+- Reuse existing components: `CollectionCard` for the list grid; `ItemBrowser` + `ItemCard`/`ItemRow` for the detail page's item list. No new card designs.
+- New DB helpers, demo-user-scoped, split by concern to avoid duplicating the item-mapping machinery:
+  - list: reuse `getSidebarCollections()` (already returns all of the user's collections with stats) for the `/collections` grid.
+  - `getCollectionById(id)` in `src/lib/db/collections.ts` — collection row only (name/description/isFavorite), user-scoped, `null` when not found/foreign.
+  - `getItemsByCollection(collectionId)` in `src/lib/db/items.ts`, right next to `getItemsByType` — reuses the existing private `ITEM_INCLUDE` + `toItemWithType`; only the `where` differs (`{ userId, collections: { some: { collectionId } } }`). Returns `ItemWithType[]` so `ItemBrowser` takes it unchanged. No new mapper.
+  - `/collections/[id]/page.tsx` calls one helper from each module — same shape as `/items/[type]/page.tsx` (`getItemTypeByName` + `getItemsByType`).
+- `CollectionCard` is currently a plain display `<div>`; wrap its content in a `Link` to `/collections/${collection.id}` (keep the accent border / icon strip).
+- Both new pages: `export const dynamic = "force-dynamic"`, same back-link + max-width wrapper style as `src/app/items/[type]/page.tsx`.
+- Add Vitest coverage for the new `src/lib/db` helpers (mock `@/lib/prisma` + `getDemoUserId`, per project testing rules).
+- Run `npm run test`, `npm run lint`, `npm run build`; browser-verify with the demo session.
+- Out of scope: collection edit / delete / favorite toggle, adding items to a collection from these pages, pagination.
 
 ## History
 

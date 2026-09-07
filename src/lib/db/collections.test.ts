@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const collection = {
   create: vi.fn(),
   findMany: vi.fn(),
+  findFirst: vi.fn(),
 };
 vi.mock("@/lib/prisma", () => ({
   prisma: { collection },
@@ -13,13 +14,13 @@ vi.mock("@/lib/prisma", () => ({
 const getDemoUserId = vi.fn();
 vi.mock("@/lib/db/user", () => ({ getDemoUserId }));
 
-const { createCollection, getCollectionOptions } = await import(
-  "@/lib/db/collections"
-);
+const { createCollection, getCollectionOptions, getCollectionById } =
+  await import("@/lib/db/collections");
 
 beforeEach(() => {
   collection.create.mockReset();
   collection.findMany.mockReset();
+  collection.findFirst.mockReset();
   getDemoUserId.mockReset();
   getDemoUserId.mockResolvedValue("user_1");
 });
@@ -98,5 +99,47 @@ describe("getCollectionOptions", () => {
       select: { id: true, name: true },
     });
     expect(result).toBe(rows);
+  });
+});
+
+describe("getCollectionById", () => {
+  it("returns null and never queries when there is no demo user", async () => {
+    getDemoUserId.mockResolvedValue(null);
+
+    const result = await getCollectionById("col_1");
+
+    expect(result).toBeNull();
+    expect(collection.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("looks the row up scoped to the demo user and returns it", async () => {
+    const row = {
+      id: "col_1",
+      name: "React Patterns",
+      description: "notes",
+      isFavorite: true,
+    };
+    collection.findFirst.mockResolvedValue(row);
+
+    const result = await getCollectionById("col_1");
+
+    expect(collection.findFirst).toHaveBeenCalledWith({
+      where: { id: "col_1", userId: "user_1" },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        isFavorite: true,
+      },
+    });
+    expect(result).toBe(row);
+  });
+
+  it("returns null for an id that isn't one of the user's collections", async () => {
+    collection.findFirst.mockResolvedValue(null);
+
+    const result = await getCollectionById("nope");
+
+    expect(result).toBeNull();
   });
 });

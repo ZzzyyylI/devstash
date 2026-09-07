@@ -123,9 +123,14 @@ export function Sidebar({
                 <CollectionGroup
                   label="Favorites"
                   collections={favoriteCollections}
+                  onNavigate={onNavigate}
                   showStar
                 />
-                <CollectionGroup label="Recent" collections={recentCollections} />
+                <CollectionGroup
+                  label="Recent"
+                  collections={recentCollections}
+                  onNavigate={onNavigate}
+                />
                 <Link
                   href="/collections"
                   onClick={onNavigate}
@@ -175,12 +180,14 @@ function SectionHeader({ label, open, collapsed, onToggle }: SectionHeaderProps)
 interface CollectionGroupProps {
   label: string;
   collections: CollectionWithStats[];
+  onNavigate?: () => void;
   showStar?: boolean;
 }
 
 function CollectionGroup({
   label,
   collections,
+  onNavigate,
   showStar = false,
 }: CollectionGroupProps) {
   if (collections.length === 0) return null;
@@ -192,7 +199,11 @@ function CollectionGroup({
       <ul className="space-y-0.5">
         {collections.map((collection) => (
           <li key={collection.id}>
-            <div className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground">
+            <Link
+              href={`/collections/${collection.id}`}
+              onClick={onNavigate}
+              className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            >
               <Folder className="size-4 shrink-0 text-muted-foreground" />
               <span className="flex-1 truncate">{collection.name}</span>
               {showStar ? (
@@ -210,7 +221,7 @@ function CollectionGroup({
                   )}
                 />
               )}
-            </div>
+            </Link>
           </li>
         ))}
       </ul>

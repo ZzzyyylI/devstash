@@ -138,6 +138,30 @@ export async function getCollectionCount(): Promise<number> {
   return prisma.collection.count({ where: { userId } });
 }
 
+export interface CollectionSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  isFavorite: boolean;
+}
+
+/**
+ * A single collection by id, scoped to the demo user — `null` when it doesn't
+ * exist or belongs to someone else. Backs the /collections/[id] detail page's
+ * header; the item list comes from `getItemsByCollection` in `db/items.ts`.
+ */
+export async function getCollectionById(
+  id: string,
+): Promise<CollectionSummary | null> {
+  const userId = await getDemoUserId();
+  if (!userId) return null;
+
+  return prisma.collection.findFirst({
+    where: { id, userId },
+    select: { id: true, name: true, description: true, isFavorite: true },
+  });
+}
+
 export interface CreatedCollection {
   id: string;
   name: string;
