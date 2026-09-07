@@ -2,12 +2,8 @@ import { Pin, Star } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { ItemWithType } from "@/lib/db/items";
+import { formatShortDate } from "@/lib/format-date";
 import { FALLBACK_ICON, palette, TYPE_ICON } from "@/lib/type-presentation";
-
-/** Format a date as e.g. "Jan 15". */
-function formatShortDate(date: Date): string {
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
 
 /** A grid card for a single item, with a left accent border coloured by its type. Display only. */
 export function ItemCard({ item }: { item: ItemWithType }) {

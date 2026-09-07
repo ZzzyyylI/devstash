@@ -26,6 +26,7 @@ import { FilePreview } from "@/components/items/FilePreview";
 import { Section } from "@/components/items/item-drawer/Section";
 import { ActionButton } from "@/components/items/item-drawer/ActionButton";
 import { DetailSkeleton } from "@/components/items/item-drawer/DetailSkeleton";
+import { formatLongDate } from "@/lib/format-date";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,15 +45,6 @@ import {
 } from "@/components/ui/sheet";
 
 import type { ItemDetailJson } from "@/components/items/item-detail-json";
-
-/** Format a date as e.g. "January 15, 2024". */
-function formatLongDate(value: string): string {
-  return new Date(value).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
 
 interface ItemDrawerProps {
   open: boolean;
