@@ -1,5 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { getDemoUserId } from "@/lib/db/user";
+import {
+  COLLECTIONS_PER_PAGE,
+  DASHBOARD_COLLECTIONS_LIMIT,
+  paginate,
+  type Paginated,
+} from "@/lib/pagination";
 import type {
   CreateCollectionInput,
   UpdateCollectionInput,
@@ -24,15 +30,16 @@ export interface CollectionWithStats {
   types: CollectionItemType[];
 }
 
-/** Shared query + stat computation behind both `getRecentCollections` and `getSidebarCollections`. */
+/** Shared query + stat computation behind `getRecentCollections`, `getSidebarCollections` and `getCollectionsPage`. */
 async function fetchCollectionsWithStats(
   userId: string,
-  take?: number,
+  range?: { skip?: number; take?: number },
 ): Promise<CollectionWithStats[]> {
   const collections = await prisma.collection.findMany({
     where: { userId },
     orderBy: { updatedAt: "desc" },
-    ...(take ? { take } : {}),
+    ...(range?.skip ? { skip: range.skip } : {}),
+    ...(range?.take ? { take: range.take } : {}),
     include: {
       items: {
         select: {
@@ -79,12 +86,12 @@ async function fetchCollectionsWithStats(
 
 /** The demo user's most recently updated collections, for the dashboard's Collections section. */
 export async function getRecentCollections(
-  limit = 6,
+  limit = DASHBOARD_COLLECTIONS_LIMIT,
 ): Promise<CollectionWithStats[]> {
   const userId = await getDemoUserId();
   if (!userId) return [];
 
-  return fetchCollectionsWithStats(userId, limit);
+  return fetchCollectionsWithStats(userId, { take: limit });
 }
 
 /** All of the demo user's collections, for the sidebar's Favorites/Recent lists. */
@@ -93,6 +100,28 @@ export async function getSidebarCollections(): Promise<CollectionWithStats[]> {
   if (!userId) return [];
 
   return fetchCollectionsWithStats(userId);
+}
+
+/**
+ * One page of the demo user's collections (with per-card stats), most recently
+ * updated first, for the /collections list view. Fetches only `COLLECTIONS_PER_PAGE`
+ * rows plus a count; an out-of-range `requestedPage` is clamped to the last page.
+ */
+export async function getCollectionsPage(
+  requestedPage = 1,
+): Promise<Paginated<CollectionWithStats>> {
+  const userId = await getDemoUserId();
+  if (!userId) return { items: [], page: 1, pageCount: 1, total: 0 };
+
+  const total = await prisma.collection.count({ where: { userId } });
+  const { page, pageCount, skip, take } = paginate(
+    total,
+    requestedPage,
+    COLLECTIONS_PER_PAGE,
+  );
+
+  const items = await fetchCollectionsWithStats(userId, { skip, take });
+  return { items, page, pageCount, total };
 }
 
 export interface CollectionOption {

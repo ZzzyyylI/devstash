@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { FolderOpen } from "lucide-react";
 
@@ -49,11 +48,6 @@ export function CommandPalette({
   const router = useRouter();
   const drawer = useItemDrawer();
 
-  const previews = useMemo(
-    () => new Map(items.map((item) => [item.id, previewText(item)])),
-    [items],
-  );
-
   function handleSelectItem(item: ItemWithType) {
     onOpenChange(false);
     drawer.select(item);
@@ -79,7 +73,7 @@ export function CommandPalette({
             <CommandGroup heading="Items">
               {items.map((item) => {
                 const Icon = TYPE_ICON[item.type.id] ?? FALLBACK_ICON;
-                const preview = previews.get(item.id) ?? "";
+                const preview = previewText(item);
                 return (
                   <CommandItem
                     key={item.id}

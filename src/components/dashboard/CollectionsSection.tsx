@@ -1,11 +1,12 @@
 import Link from "next/link";
 
 import { getRecentCollections } from "@/lib/db/collections";
+import { DASHBOARD_COLLECTIONS_LIMIT } from "@/lib/pagination";
 import { CollectionCard } from "@/components/dashboard/CollectionCard";
 
 /** Recent collections grid shown near the top of the dashboard. */
 export async function CollectionsSection() {
-  const collections = await getRecentCollections(6);
+  const collections = await getRecentCollections(DASHBOARD_COLLECTIONS_LIMIT);
 
   return (
     <section>

@@ -8,6 +8,7 @@ const collection = {
   findFirst: vi.fn(),
   updateMany: vi.fn(),
   deleteMany: vi.fn(),
+  count: vi.fn(),
 };
 vi.mock("@/lib/prisma", () => ({
   prisma: { collection },
@@ -20,6 +21,7 @@ const {
   createCollection,
   getCollectionOptions,
   getCollectionById,
+  getCollectionsPage,
   getSearchCollections,
   updateCollection,
   deleteCollection,
@@ -31,6 +33,8 @@ beforeEach(() => {
   collection.findFirst.mockReset();
   collection.updateMany.mockReset();
   collection.deleteMany.mockReset();
+  collection.count.mockReset();
+  collection.count.mockResolvedValue(0);
   getDemoUserId.mockReset();
   getDemoUserId.mockResolvedValue("user_1");
 });
@@ -139,6 +143,50 @@ describe("getSearchCollections", () => {
       { id: "col_1", name: "AI Workflows", itemCount: 3 },
       { id: "col_2", name: "React Patterns", itemCount: 0 },
     ]);
+  });
+});
+
+describe("getCollectionsPage", () => {
+  it("returns an empty page and never queries when there is no demo user", async () => {
+    getDemoUserId.mockResolvedValue(null);
+
+    const result = await getCollectionsPage(1);
+
+    expect(result).toEqual({ items: [], page: 1, pageCount: 1, total: 0 });
+    expect(collection.count).not.toHaveBeenCalled();
+    expect(collection.findMany).not.toHaveBeenCalled();
+  });
+
+  it("counts, then fetches only the requested page's rows, newest first", async () => {
+    collection.count.mockResolvedValue(50); // 3 pages at 21/page
+    collection.findMany.mockResolvedValue([]);
+
+    const result = await getCollectionsPage(2);
+
+    expect(collection.count).toHaveBeenCalledWith({
+      where: { userId: "user_1" },
+    });
+    expect(collection.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: "user_1" },
+        orderBy: { updatedAt: "desc" },
+        skip: 21,
+        take: 21,
+      }),
+    );
+    expect(result).toMatchObject({ page: 2, pageCount: 3, total: 50 });
+  });
+
+  it("clamps a request past the last page", async () => {
+    collection.count.mockResolvedValue(50);
+    collection.findMany.mockResolvedValue([]);
+
+    const result = await getCollectionsPage(99);
+
+    expect(result).toMatchObject({ page: 3, pageCount: 3 });
+    expect(collection.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 42, take: 21 }),
+    );
   });
 });
 

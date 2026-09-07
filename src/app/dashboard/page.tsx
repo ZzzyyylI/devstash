@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Clock, Pin } from "lucide-react";
 
 import { getPinnedItems, getRecentItems } from "@/lib/db/items";
+import { DASHBOARD_RECENT_ITEMS_LIMIT } from "@/lib/pagination";
 import { StatsSection } from "@/components/dashboard/StatsSection";
 import { CollectionsSection } from "@/components/dashboard/CollectionsSection";
 import { ItemsSection } from "@/components/dashboard/ItemsSection";
@@ -16,7 +17,7 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage() {
   const [pinnedItems, recentItems] = await Promise.all([
     getPinnedItems(),
-    getRecentItems(10),
+    getRecentItems(DASHBOARD_RECENT_ITEMS_LIMIT),
   ]);
 
   return (

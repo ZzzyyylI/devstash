@@ -9,10 +9,12 @@
  * case-insensitive **substring** of one of the row's fields; a row missing any
  * token is filtered out entirely (score 0).
  *
- * Ranking, among the rows that do match: a hit in the first field (by
- * convention the title) outweighs a hit in a later field, and a hit nearer the
- * start of a field outweighs one further in. The returned score is the mean of
- * the per-token bests, so it stays comparable regardless of token count.
+ * Matching is **binary** — every row that matches gets the same score. cmdk
+ * sorts visible rows by descending score, so a graded score reorders the list
+ * on every keystroke (a title hit jumping above a body hit, an earlier match
+ * jumping above a later one), which reads as flicker. With one score for all
+ * matches that sort is a no-op and rows keep the order they were rendered in:
+ * items newest-first, then collections.
  *
  * Signature matches cmdk's `filter` prop: `(value, search, keywords?)`. When a
  * row supplies `keywords` those are the fields searched (the raw `value` is
@@ -26,24 +28,13 @@ export function commandFilter(
   const query = search.trim().toLowerCase();
   if (!query) return 1;
 
-  const fields = (
-    keywords && keywords.length > 0 ? keywords : [value]
-  ).map((field) => field.toLowerCase());
+  // Tokens never contain whitespace, so joining the fields with a space can't
+  // let a token match across a field boundary — this stays a per-field
+  // substring test, just without per-field ranking.
+  const haystack = (keywords && keywords.length > 0 ? keywords : [value])
+    .join(" ")
+    .toLowerCase();
+
   const tokens = query.split(/\s+/);
-
-  let total = 0;
-  for (const token of tokens) {
-    let best = 0;
-    fields.forEach((field, index) => {
-      const at = field.indexOf(token);
-      if (at === -1) return;
-      const fieldWeight = index === 0 ? 2 : 1;
-      const positionScore = 1 / (1 + at);
-      best = Math.max(best, fieldWeight * positionScore);
-    });
-    if (best === 0) return 0;
-    total += best;
-  }
-
-  return total / tokens.length;
+  return tokens.every((token) => haystack.includes(token)) ? 1 : 0;
 }
