@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { getDemoUserId } from "@/lib/db/user";
-import type { CreateCollectionInput } from "@/lib/validations/collection";
+import type {
+  CreateCollectionInput,
+  UpdateCollectionInput,
+} from "@/lib/validations/collection";
 
 export interface CollectionItemType {
   id: string;
@@ -188,4 +191,45 @@ export async function createCollection(
     },
     select: { id: true, name: true, description: true, isFavorite: true },
   });
+}
+
+/**
+ * Update a collection's metadata (name + description) from the "Edit collection"
+ * dialog. User-scoped via `getDemoUserId()`; the ownership check is folded into
+ * the `updateMany` `where`, so an unknown or foreign id updates nothing and
+ * returns `null`. On success returns the fresh row.
+ */
+export async function updateCollection(
+  id: string,
+  data: UpdateCollectionInput,
+): Promise<CollectionSummary | null> {
+  const userId = await getDemoUserId();
+  if (!userId) return null;
+
+  const { count } = await prisma.collection.updateMany({
+    where: { id, userId },
+    data: { name: data.name, description: data.description },
+  });
+  if (count === 0) return null;
+
+  return prisma.collection.findFirst({
+    where: { id, userId },
+    select: { id: true, name: true, description: true, isFavorite: true },
+  });
+}
+
+/**
+ * Delete a collection. User-scoped via `getDemoUserId()`, with the ownership
+ * check in the `deleteMany` `where`. The collection's items are **not** deleted
+ * — only the `CollectionItem` join rows, which cascade away. Returns `false` for
+ * an unknown or foreign id.
+ */
+export async function deleteCollection(id: string): Promise<boolean> {
+  const userId = await getDemoUserId();
+  if (!userId) return false;
+
+  const { count } = await prisma.collection.deleteMany({
+    where: { id, userId },
+  });
+  return count > 0;
 }

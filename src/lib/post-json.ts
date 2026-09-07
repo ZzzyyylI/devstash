@@ -8,18 +8,21 @@ export interface PostJsonResult<T> {
 }
 
 /**
- * POST `body` as JSON. Never throws — a network failure comes back as
- * `{ ok: false, status: 0, data: null }`. Shared by the auth / profile forms,
- * which then branch on `status` for the network-vs-server distinction.
+ * Send `body` as JSON (POST by default; pass `method` for PATCH / DELETE / …).
+ * Never throws — a network failure comes back as
+ * `{ ok: false, status: 0, data: null }`. Shared by the auth / profile forms and
+ * the collection dialogs, which then branch on `status` for the
+ * network-vs-server distinction.
  */
 export async function postJson<T = unknown>(
   url: string,
   body: unknown,
+  method: string = "POST",
 ): Promise<PostJsonResult<T>> {
   let res: Response;
   try {
     res = await fetch(url, {
-      method: "POST",
+      method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });

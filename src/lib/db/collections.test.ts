@@ -6,6 +6,8 @@ const collection = {
   create: vi.fn(),
   findMany: vi.fn(),
   findFirst: vi.fn(),
+  updateMany: vi.fn(),
+  deleteMany: vi.fn(),
 };
 vi.mock("@/lib/prisma", () => ({
   prisma: { collection },
@@ -14,13 +16,20 @@ vi.mock("@/lib/prisma", () => ({
 const getDemoUserId = vi.fn();
 vi.mock("@/lib/db/user", () => ({ getDemoUserId }));
 
-const { createCollection, getCollectionOptions, getCollectionById } =
-  await import("@/lib/db/collections");
+const {
+  createCollection,
+  getCollectionOptions,
+  getCollectionById,
+  updateCollection,
+  deleteCollection,
+} = await import("@/lib/db/collections");
 
 beforeEach(() => {
   collection.create.mockReset();
   collection.findMany.mockReset();
   collection.findFirst.mockReset();
+  collection.updateMany.mockReset();
+  collection.deleteMany.mockReset();
   getDemoUserId.mockReset();
   getDemoUserId.mockResolvedValue("user_1");
 });
@@ -141,5 +150,85 @@ describe("getCollectionById", () => {
     const result = await getCollectionById("nope");
 
     expect(result).toBeNull();
+  });
+});
+
+describe("updateCollection", () => {
+  it("returns null and never writes when there is no demo user", async () => {
+    getDemoUserId.mockResolvedValue(null);
+
+    const result = await updateCollection("col_1", {
+      name: "New",
+      description: null,
+    });
+
+    expect(result).toBeNull();
+    expect(collection.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("updates the row scoped to the demo user and returns the fresh row", async () => {
+    collection.updateMany.mockResolvedValue({ count: 1 });
+    const row = {
+      id: "col_1",
+      name: "Renamed",
+      description: "notes",
+      isFavorite: false,
+    };
+    collection.findFirst.mockResolvedValue(row);
+
+    const result = await updateCollection("col_1", {
+      name: "Renamed",
+      description: "notes",
+    });
+
+    expect(collection.updateMany).toHaveBeenCalledWith({
+      where: { id: "col_1", userId: "user_1" },
+      data: { name: "Renamed", description: "notes" },
+    });
+    expect(collection.findFirst).toHaveBeenCalledWith({
+      where: { id: "col_1", userId: "user_1" },
+      select: { id: true, name: true, description: true, isFavorite: true },
+    });
+    expect(result).toBe(row);
+  });
+
+  it("returns null without re-reading when nothing matched (foreign id)", async () => {
+    collection.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await updateCollection("nope", {
+      name: "X",
+      description: null,
+    });
+
+    expect(result).toBeNull();
+    expect(collection.findFirst).not.toHaveBeenCalled();
+  });
+});
+
+describe("deleteCollection", () => {
+  it("returns false and never writes when there is no demo user", async () => {
+    getDemoUserId.mockResolvedValue(null);
+
+    const result = await deleteCollection("col_1");
+
+    expect(result).toBe(false);
+    expect(collection.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("deletes the row scoped to the demo user", async () => {
+    collection.deleteMany.mockResolvedValue({ count: 1 });
+
+    const result = await deleteCollection("col_1");
+
+    expect(collection.deleteMany).toHaveBeenCalledWith({
+      where: { id: "col_1", userId: "user_1" },
+    });
+    expect(result).toBe(true);
+  });
+
+  it("returns false for an id that isn't one of the user's collections", async () => {
+    collection.deleteMany.mockResolvedValue({ count: 0 });
+
+    expect(await deleteCollection("nope")).toBe(false);
   });
 });

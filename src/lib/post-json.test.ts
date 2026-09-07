@@ -31,6 +31,15 @@ describe("postJson", () => {
     });
   });
 
+  it("uses the method argument when one is given (PATCH / DELETE)", async () => {
+    stubFetch(async () => new Response(JSON.stringify({ ok: 1 }), { status: 200 }));
+
+    await postJson("/api/x/1", { name: "y" }, "PATCH");
+
+    const [, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(init).toMatchObject({ method: "PATCH" });
+  });
+
   it("returns ok:false with the parsed error body on a non-2xx response", async () => {
     stubFetch(
       async () =>
