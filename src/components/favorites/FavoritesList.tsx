@@ -1,13 +1,22 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Folder } from "lucide-react";
+import { ArrowDown, ArrowUp, Folder } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { ItemWithType } from "@/lib/db/items";
 import type { FavoriteCollection } from "@/lib/db/collections";
 import { formatShortDate } from "@/lib/format-date";
 import { FALLBACK_ICON, palette, TYPE_ICON } from "@/lib/type-presentation";
+import {
+  DEFAULT_FAVORITE_SORT,
+  FAVORITE_SORT_OPTIONS,
+  defaultDirForKey,
+  sortFavoriteCollections,
+  sortFavoriteItems,
+  type FavoriteSortKey,
+} from "@/lib/favorites-sort";
 import { ItemDrawer } from "@/components/items/ItemDrawer";
 import { useItemDrawer } from "@/components/items/use-item-drawer";
 
@@ -24,6 +33,7 @@ interface FavoritesListProps {
 export function FavoritesList({ items, collections }: FavoritesListProps) {
   const router = useRouter();
   const drawer = useItemDrawer();
+  const [sort, setSort] = useState(DEFAULT_FAVORITE_SORT);
 
   if (items.length === 0 && collections.length === 0) {
     return (
@@ -33,12 +43,59 @@ export function FavoritesList({ items, collections }: FavoritesListProps) {
     );
   }
 
+  const sortedItems = sortFavoriteItems(items, sort.key, sort.dir);
+  const sortedCollections = sortFavoriteCollections(
+    collections,
+    sort.key,
+    sort.dir,
+  );
+
   return (
     <>
-      <div className="mt-8 space-y-8 font-mono">
-        {items.length > 0 && (
-          <Section title="Items" count={items.length}>
-            {items.map((item) => {
+      <div className="mt-6 flex items-center justify-end gap-2 font-mono text-xs text-muted-foreground">
+        <label htmlFor="favorites-sort">Sort</label>
+        <select
+          id="favorites-sort"
+          value={sort.key}
+          onChange={(event) => {
+            const key = event.target.value as FavoriteSortKey;
+            setSort({ key, dir: defaultDirForKey(key) });
+          }}
+          className="rounded border border-border bg-background px-2 py-1 text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        >
+          {FAVORITE_SORT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          aria-label={
+            sort.dir === "asc"
+              ? "Sorted ascending — switch to descending"
+              : "Sorted descending — switch to ascending"
+          }
+          onClick={() =>
+            setSort((prev) => ({
+              ...prev,
+              dir: prev.dir === "asc" ? "desc" : "asc",
+            }))
+          }
+          className="inline-flex size-7 items-center justify-center rounded border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        >
+          {sort.dir === "asc" ? (
+            <ArrowUp className="size-3.5" />
+          ) : (
+            <ArrowDown className="size-3.5" />
+          )}
+        </button>
+      </div>
+
+      <div className="mt-4 space-y-8 font-mono">
+        {sortedItems.length > 0 && (
+          <Section title="Items" count={sortedItems.length}>
+            {sortedItems.map((item) => {
               const Icon = TYPE_ICON[item.type.id] ?? FALLBACK_ICON;
               const accent = palette(item.type.color);
               return (
@@ -55,9 +112,9 @@ export function FavoritesList({ items, collections }: FavoritesListProps) {
           </Section>
         )}
 
-        {collections.length > 0 && (
-          <Section title="Collections" count={collections.length}>
-            {collections.map((collection) => (
+        {sortedCollections.length > 0 && (
+          <Section title="Collections" count={sortedCollections.length}>
+            {sortedCollections.map((collection) => (
               <Row
                 key={collection.id}
                 onSelect={() => router.push(`/collections/${collection.id}`)}
