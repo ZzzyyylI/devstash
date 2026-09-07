@@ -25,6 +25,9 @@ model User {
   isPro                Boolean   @default(false)
   stripeCustomerId     String?
   stripeSubscriptionId String?
+  // Monaco editor preferences (font size, tab size, word wrap, minimap, theme).
+  // Shape + defaults live in src/lib/editor-preferences.ts; null = use defaults.
+  editorPreferences    Json?
 
   accounts    Account[]
   sessions    Session[]

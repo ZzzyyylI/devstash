@@ -1,7 +1,9 @@
 import { auth } from "@/auth";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
+import { EditorPreferencesProvider } from "@/components/editor-preferences/EditorPreferencesProvider";
 import { getItemTypesWithCounts } from "@/lib/db/item-types";
 import { getSidebarCollections } from "@/lib/db/collections";
+import { getEditorPreferences } from "@/lib/db/editor-preferences";
 import { getSearchIndex } from "@/lib/db/search";
 
 // The sidebar reads live data from Neon — don't statically cache it at build time.
@@ -12,12 +14,15 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [session, itemTypes, collections, searchIndex] = await Promise.all([
-    auth(),
-    getItemTypesWithCounts(),
-    getSidebarCollections(),
-    getSearchIndex(),
-  ]);
+  const session = await auth();
+
+  const [itemTypes, collections, searchIndex, editorPreferences] =
+    await Promise.all([
+      getItemTypesWithCounts(),
+      getSidebarCollections(),
+      getSearchIndex(),
+      getEditorPreferences(session?.user?.id),
+    ]);
 
   const user = {
     name: session?.user?.name,
@@ -26,13 +31,15 @@ export default async function DashboardLayout({
   };
 
   return (
-    <DashboardShell
-      itemTypes={itemTypes}
-      collections={collections}
-      user={user}
-      searchIndex={searchIndex}
-    >
-      {children}
-    </DashboardShell>
+    <EditorPreferencesProvider initial={editorPreferences}>
+      <DashboardShell
+        itemTypes={itemTypes}
+        collections={collections}
+        user={user}
+        searchIndex={searchIndex}
+      >
+        {children}
+      </DashboardShell>
+    </EditorPreferencesProvider>
   );
 }

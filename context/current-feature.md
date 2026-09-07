@@ -1,18 +1,28 @@
-# Current Feature
-
-_None — ready for the next feature._
+# Current Feature: Editor Preferences Settings
 
 ## Status
 
-Completed
+In Progress
 
 ## Goals
 
-_None._
+- Add an "Editor Preferences" section to the `/settings` page
+- Controls: font size dropdown, tab size dropdown, word wrap toggle (default on), minimap toggle (default off), theme dropdown (`vs-dark` / `monokai` / `github-dark`, default `vs-dark`)
+- Persist preferences in a JSON column `editorPreferences` on the `User` model
+- Create and run a real Prisma migration for the schema change (never `db push`)
+- Server action to update the current user's editor preferences
+- Auto-save on every change — no save button — with a success toast
+- `EditorPreferencesContext` so client components can read the preferences
+- Apply the preferences to the Monaco editor component
 
 ## Notes
 
-_None._
+- Spec: `context/features/editor-settings-spec.md`
+- Settings page already exists (`src/app/settings/page.tsx`, `force-dynamic`) with `ChangePasswordForm` + `DeleteAccountDialog` in `src/components/settings/`
+- Monaco editor already in the codebase (Code Editor feature) — locate the component and thread preferences in via the new context
+- Follow project pattern: Zod validation in `src/lib/validations/`, server action in `src/actions/`, `{ success, data, error }` return shape, `sonner` toasts
+- Migration target: Neon `development` branch (`br-patient-sunset-ayl1jjv2`) via `prisma migrate dev`
+- Add Vitest coverage for the new validation schema + server action
 
 ## History
 
