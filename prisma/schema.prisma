@@ -16,18 +16,20 @@ datasource db {
 // ---------------------------------------------------------------------------
 
 model User {
-  id                   String    @id @default(cuid())
-  name                 String?
-  email                String    @unique
-  emailVerified        DateTime?
-  image                String?
-  password             String?
-  isPro                Boolean   @default(false)
-  stripeCustomerId     String?
-  stripeSubscriptionId String?
+  id                     String    @id @default(cuid())
+  name                   String?
+  email                  String    @unique
+  emailVerified          DateTime?
+  image                  String?
+  password               String?
+  isPro                  Boolean   @default(false)
+  stripeCustomerId       String?   @unique
+  stripeSubscriptionId   String?
+  stripePriceId          String?
+  stripeCurrentPeriodEnd DateTime?
   // Monaco editor preferences (font size, tab size, word wrap, minimap, theme).
   // Shape + defaults live in src/lib/editor-preferences.ts; null = use defaults.
-  editorPreferences    Json?
+  editorPreferences      Json?
 
   accounts    Account[]
   sessions    Session[]
