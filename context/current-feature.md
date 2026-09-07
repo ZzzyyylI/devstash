@@ -2,7 +2,7 @@
 
 <!-- Feature Name -->
 
-_None — ready for the next feature._
+Low-Risk Fixes Batch — Hardening & Perf
 
 ## Status
 
@@ -14,13 +14,55 @@ Completed
 
 <!-- Goals & requirements -->
 
-_None._
+Five small, low-risk fixes drawn from the `code-scanner` audit + `/cleanup` scan. Each is independent; ship them in one branch but keep the commits focused.
+
+### 1. Standardize the bcrypt cost factor
+
+- `bcrypt.hash(x, 12)` is a repeated magic number in `src/app/api/auth/register/route.ts:63`, `src/app/api/auth/reset-password/route.ts:61`, `src/app/api/auth/change-password/route.ts:67`, and `prisma/seed.ts:331`. All four already use `12`, so this is a **no-op safety refactor** — the point is that they can't drift apart later.
+- New `src/lib/password.ts` exporting `BCRYPT_ROUNDS = 12` (plus thin `hashPassword(plain)` / `verifyPassword(plain, hash)` wrappers over `bcryptjs`, since `bcrypt.compare` is likewise scattered). Import `BCRYPT_ROUNDS` / the wrappers everywhere a hash or compare happens (`src/auth.ts:55` too).
+- Keep it out of `src/auth.config.ts` (edge bundle must stay free of `bcryptjs`).
+- Unit test `src/lib/password.test.ts`: `BCRYPT_ROUNDS === 12`; `verifyPassword` round-trips a `hashPassword` output; wrong password -> `false`.
+
+### 2. Debounce the Markdown editor
+
+- `src/components/items/MarkdownEditor.tsx` calls `onChange` upward on every keystroke (re-rendering the whole `ItemEditForm` / `NewItemDialog` tree) and re-runs the textarea auto-grow measurement (and, on the Preview tab, the `ReactMarkdown` parse) every keystroke.
+- Keep the `<textarea>` **instantly responsive** via local `draft` state; debounce (~250 ms) the value pushed up via `onChange`. Preview + Copy read `draft` so they're always current.
+- New `src/lib/debounce.ts` — a pure `debounce(fn, delayMs)` with `.flush()` / `.cancel()` (no React, so it's unit-testable in the node env; a `useDebouncedValue` hook wouldn't be — the project has no jsdom/RTL). `src/lib/debounce.test.ts` with fake timers: no call before the delay, rapid calls coalesce to the latest args, `flush()` fires immediately, `cancel()` drops it.
+- **Must not lose a trailing edit**: `emit.flush()` on textarea blur, on switching to the Preview tab, and on unmount. Save is covered by the blur (mousedown on Save blurs the textarea first).
+- The stable `emit` is created via a `useState` lazy initializer; its callback touches refs only when the timer fires, so a one-line `eslint-disable-next-line react-hooks/refs` (with reason) sits on it.
+- `CodeEditor` (Monaco) is out of scope — untouched.
+
+### 3. URL protocol validation
+
+- `nullableUrl` in `src/lib/validations/item.ts:33` uses `z.url()`, which accepts `javascript:`, `data:`, `vbscript:` ... . That value is rendered as `<a href={detail.url}>` in `src/components/items/ItemDrawer.tsx:289` and copied by `CopyButton`.
+- Restrict to `http:` / `https:` only — parse with `new URL(value)` and check `.protocol`, or Zod's protocol option if available. Update the message ("Enter a valid http(s) URL").
+- Applies to both `updateItemSchema` and `createItemSchema` (shared field).
+- Tests in `src/lib/validations/item.test.ts`: reject `javascript:alert(1)`, `data:text/html,...`; accept `https://example.com`, `http://localhost:3000/x`; blank still -> `null`.
+
+### 4. Replace `<img>` with `next/image`
+
+- Three tags, all currently carrying an inline `eslint-disable @next/next/no-img-element`:
+  - `src/components/dashboard/ImageCard.tsx:20` — gallery thumbnail, `src={/api/files/${id}}`. Use `fill` inside the existing `aspect-video` wrapper + a `sizes` prop; keep `object-cover` + the hover `scale-105`.
+  - `src/components/items/ItemDrawer.tsx:581` — file preview, constrained by `max-h-80 w-auto`. Give explicit `width`/`height` (approx, e.g. 1200x800) with `style={{ width: "auto", height: "auto", maxHeight: "20rem" }}`, or wrap in a sized box.
+  - `src/components/items/FileUpload.tsx:170` — client-side preview of a `blob:` object URL.
+- **All three sources need `unoptimized`**: `/api/files/[id]` is an auth-gated same-origin proxy (Next's optimizer fetches server-side without the user's cookies -> 401) and `blob:` URLs can't be optimized. So the real wins here are: dimensions / `fill` for layout stability, built-in lazy loading, and dropping the three `eslint-disable`s — not the optimizer.
+- Confirm no `images` block is required in `next.config.ts` for same-origin `unoptimized` usage; add one only if the build complains.
+- No unit tests (components aren't in the Vitest scope) — verify in the browser.
+
+### 5. Rate-limit `POST /api/upload`
+
+- It's the only mutating API route with no limiter (`register` / `forgot-password` / `reset-password` / `resend-verification` / login all have one via `src/lib/rate-limit.ts`).
+- After the `auth()` check in `src/app/api/upload/route.ts:24`, call `checkRateLimit({ request, name: "upload", limit: 30, window: "5 m", identifier: session.user.id })`. On `!success` return **429 in this route's `{ success: false, error }` shape** (not the bare `rateLimitResponse` helper, whose body is `{ error }`) plus a `Retry-After` header.
+- Fails open like the rest (no Upstash creds -> allowed).
+- `FileUpload.tsx` already surfaces a non-2xx `error` string from the response — confirm the 429 message renders in its error phase.
+- Extend `src/lib/rate-limit.test.ts` only if a new shared helper is added; otherwise no new tests (the upload route has no existing test harness).
 
 ## Notes
 
 <!-- Any extra notes -->
 
-_None._
+- Not in this batch (tracked from the audit for later): inline-SVG XSS hardening on `/api/files/[id]`, host-header fallback in `getBaseUrl`, `fileKey` ownership check, unbounded upload body buffering, `fetchCollectionsWithStats` over-fetch, per-image detail query, `ItemDrawer.tsx` split, security headers in `next.config.ts`, the `Item` / `VerificationToken` indexes, the `proxy.ts` `callbackUrl` fix, `TTL_MS` dedupe, `src/lib/mock-data.ts` deletion.
+- Per workflow: after implementing, run `npm run test` + `npm run lint` + `npm run build`, verify in the browser (markdown typing + Save, gallery/drawer images, an upload, a `javascript:` URL rejected), then request permission to commit.
 
 ## History
 

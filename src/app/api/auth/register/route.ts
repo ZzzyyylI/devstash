@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
 import { Prisma } from "@/generated/prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { hashPassword } from "@/lib/password";
 import { registerSchema } from "@/lib/validations/auth";
 import { getBaseUrl } from "@/lib/base-url";
 import { createVerificationToken } from "@/lib/tokens";
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const passwordHash = await bcrypt.hash(password, 12);
+  const passwordHash = await hashPassword(password);
   const verifyEmail = emailVerificationEnabled();
 
   try {

@@ -65,6 +65,32 @@ describe("updateItemSchema", () => {
     }
   });
 
+  it("accepts http and https URLs", () => {
+    expect(
+      updateItemSchema.parse({ ...base, url: "http://localhost:3000/x" }).url,
+    ).toBe("http://localhost:3000/x");
+    expect(
+      updateItemSchema.parse({ ...base, url: "https://example.com" }).url,
+    ).toBe("https://example.com");
+  });
+
+  it("rejects non-http(s) URL schemes", () => {
+    for (const url of [
+      "javascript:alert(1)",
+      "data:text/html,<script>alert(1)</script>",
+      "vbscript:msgbox(1)",
+      "file:///etc/passwd",
+    ]) {
+      const result = updateItemSchema.safeParse({ ...base, url });
+      expect(result.success, url).toBe(false);
+      if (!result.success) {
+        expect(result.error.flatten().fieldErrors.url?.[0]).toMatch(
+          /http or https/i,
+        );
+      }
+    }
+  });
+
   it("trims, drops blank, and de-dupes tags", () => {
     expect(
       updateItemSchema.parse({

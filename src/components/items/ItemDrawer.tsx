@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import type { LucideIcon } from "lucide-react";
 import {
   Calendar,
@@ -577,12 +578,17 @@ function FilePreview({ detail }: { detail: ItemDetailJson }) {
     <Section title={isImage ? "Image" : "File"} icon={FileText}>
       {isImage ? (
         <a href={src} target="_blank" rel="noreferrer" className="block">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={src}
-            alt={detail.fileName ?? detail.title}
-            className="max-h-80 w-auto rounded-lg border border-border object-contain"
-          />
+          <span className="relative block aspect-video max-h-80 w-full overflow-hidden rounded-lg border border-border bg-muted">
+            <Image
+              src={src}
+              alt={detail.fileName ?? detail.title}
+              fill
+              // Auth-gated same-origin proxy — Next's optimizer can't fetch it.
+              unoptimized
+              sizes="(min-width: 640px) 576px, 100vw"
+              className="object-contain"
+            />
+          </span>
         </a>
       ) : (
         <div className="flex items-center gap-3 rounded-lg border border-border p-3">

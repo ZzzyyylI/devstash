@@ -1,9 +1,9 @@
 import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import bcrypt from "bcryptjs";
 
 import { prisma } from "@/lib/prisma";
+import { verifyPassword } from "@/lib/password";
 import authConfig from "@/auth.config";
 import { signInSchema } from "@/lib/validations/auth";
 import { emailVerificationEnabled } from "@/lib/auth-flags";
@@ -52,7 +52,7 @@ const providers = authConfig.providers.map((provider) => {
       });
       if (!user?.password) return null;
 
-      const passwordMatches = await bcrypt.compare(password, user.password);
+      const passwordMatches = await verifyPassword(password, user.password);
       if (!passwordMatches) return null;
 
       if (emailVerificationEnabled() && !user.emailVerified) {

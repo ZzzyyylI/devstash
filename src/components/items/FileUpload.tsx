@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { File as FileIcon, UploadCloud, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -166,10 +167,13 @@ export function FileUpload({
       <div className="rounded-lg border border-input p-3">
         <div className="flex items-start gap-3">
           {kind === "image" && previewUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={previewUrl}
               alt={value.name}
+              width={64}
+              height={64}
+              // Local object URL — nothing for the optimizer to do.
+              unoptimized
               className="size-16 shrink-0 rounded-md border border-border object-cover"
             />
           ) : (

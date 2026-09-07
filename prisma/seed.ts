@@ -1,8 +1,7 @@
 import "dotenv/config";
 
-import bcrypt from "bcryptjs";
-
 import { prisma } from "../src/lib/prisma";
+import { hashPassword } from "../src/lib/password";
 
 /**
  * Seeds the database with sample data for development and demos.
@@ -328,7 +327,7 @@ async function main() {
   }
   console.log(`Upserted ${SYSTEM_ITEM_TYPES.length} system item types.`);
 
-  const passwordHash = await bcrypt.hash(DEMO_USER.password, 12);
+  const passwordHash = await hashPassword(DEMO_USER.password);
   const user = await prisma.user.upsert({
     where: { email: DEMO_USER.email },
     update: {
