@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { createCollectionSchema } from "@/lib/validations/collection";
+import {
+  createCollectionSchema,
+  updateCollectionSchema,
+} from "@/lib/validations/collection";
 
 describe("createCollectionSchema", () => {
   it("trims the name and requires it to be non-empty", () => {
@@ -37,5 +40,20 @@ describe("createCollectionSchema", () => {
       createCollectionSchema.parse({ name: "A", description: "  notes  " })
         .description,
     ).toBe("notes");
+  });
+});
+
+describe("updateCollectionSchema", () => {
+  it("has the same shape as createCollectionSchema", () => {
+    expect(updateCollectionSchema).toBe(createCollectionSchema);
+  });
+
+  it("trims the name, requires it, and normalises the description", () => {
+    expect(
+      updateCollectionSchema.parse({ name: "  Renamed  ", description: "  x  " }),
+    ).toEqual({ name: "Renamed", description: "x" });
+
+    const result = updateCollectionSchema.safeParse({ name: "  " });
+    expect(result.success).toBe(false);
   });
 });

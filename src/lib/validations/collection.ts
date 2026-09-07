@@ -24,3 +24,12 @@ export const createCollectionSchema = z.object({
 
 /** Validated + normalised create payload. */
 export type CreateCollectionInput = z.infer<typeof createCollectionSchema>;
+
+/**
+ * The edit payload (`PATCH /api/collections/[id]`). Same shape as create — the
+ * "Edit collection" dialog sends the full name + description every save.
+ */
+export const updateCollectionSchema = createCollectionSchema;
+
+/** Validated + normalised update payload. */
+export type UpdateCollectionInput = z.infer<typeof updateCollectionSchema>;
