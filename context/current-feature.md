@@ -1,18 +1,36 @@
-# Current Feature
-
-_None — ready for the next feature._
+# Current Feature: Favorites Page — Client-Side Sorting
 
 ## Status
 
-Completed
+In Progress
 
 ## Goals
 
-_None._
+Add a sort control to `/favorites` ([FavoritesList.tsx](src/components/favorites/FavoritesList.tsx), already `"use client"`) that reorders the list entirely on the client — no new query, no refetch. Three sort keys:
+
+1. **Name** — `title` / `name`, case-insensitive `localeCompare`.
+2. **Date** — `updatedAt` (the date already shown on each row). This is today's implicit order, so it stays the default (descending = most-recently-favorited first).
+3. **Item type** — `item.type.name`, tie-broken by title.
+
+Plus a direction toggle (asc/desc). Both the **Items** and **Collections** sections respond to the control; picking "type" sorts collections by name (they have no type). Empty state is unchanged (control not rendered when there's nothing to sort).
 
 ## Notes
 
-_None._
+**Pure helper (testable — `src/lib`, not the component):** new `src/lib/favorites-sort.ts`
+- `type FavoriteSortKey = "name" | "date" | "type"`, `type SortDir = "asc" | "desc"`.
+- `FAVORITE_SORT_OPTIONS: { value: FavoriteSortKey; label: string }[]` for the control.
+- `DEFAULT_FAVORITE_SORT = { key: "date", dir: "desc" }` — preserves current behaviour.
+- `sortFavoriteItems(items: ItemWithType[], key, dir): ItemWithType[]` and `sortFavoriteCollections(collections: FavoriteCollection[], key, dir): FavoriteCollection[]` — both return a **new** array (no mutation), stable; `name`/`type` via `localeCompare(…, undefined, { sensitivity: "base" })`, `date` via `getTime()`; `type` tie-breaks on title; `dir === "asc"` negates the `desc` comparator. `sortFavoriteCollections` treats `key: "type"` as `"name"`. Type-only imports of `ItemWithType` / `FavoriteCollection` from `@/lib/db/*` (no server-only surface).
+
+**Component (`FavoritesList.tsx`):**
+- `const [sort, setSort] = useState(DEFAULT_FAVORITE_SORT)` (in-memory only — resets on navigation; no localStorage / URL param this pass).
+- Sort control above the two sections, matching the page's dense `font-mono` / `text-xs` / muted aesthetic: a `<select>` labelled "Sort" (options from `FAVORITE_SORT_OPTIONS`) + an icon `<button aria-label="Toggle sort direction">` (lucide `ArrowUp` / `ArrowDown`). Rendered only inside the existing non-empty branch.
+- `sortFavoriteItems(items, sort.key, sort.dir)` / `sortFavoriteCollections(collections, sort.key, sort.dir)` computed inline in render and mapped by the sections (small lists; no `useMemo` — consistent with the codebase not memoising since the React Compiler is off). `Section` / `Row` helpers unchanged.
+- Page ([favorites/page.tsx](src/app/favorites/page.tsx)) unchanged — still passes the DB-ordered arrays; the count line stays.
+
+**Decide before `start`:** the control drives **both** sections, with "type" → name for collections (they have no type). If you'd rather it only touch the Items list, say so. No asc/desc is fine too if the toggle feels like scope creep — then each key gets a fixed sensible direction.
+
+**Verify:** `favorites-sort.test.ts` (each key × both directions, stability, no mutation, collections "type"→"name" fallback); `npm run test` / `lint` / `build`; browser round-trip on `/favorites` (each key + direction reorders both sections; empty state still fine).
 
 ## History
 
