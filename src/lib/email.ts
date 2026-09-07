@@ -20,7 +20,7 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 /** From address for all outbound mail. Falls back to Resend's shared test sender. */
-const FROM = process.env.EMAIL_FROM ?? "DevStash <onboarding@resend.dev>";
+const FROM = process.env.EMAIL_FROM?.trim() || "DevStash <onboarding@resend.dev>";
 
 /**
  * Send the account verification email.
