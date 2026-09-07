@@ -479,3 +479,12 @@ export async function getItemStats(): Promise<ItemStats> {
 
   return { total, favorites };
 }
+
+/**
+ * How many items a specific user owns. Explicit `userId` (not `getDemoUserId()`)
+ * so the Phase 2 free-plan create gate can pass the session user; also lets a
+ * caller that already has the count skip {@link checkItemLimit}'s own query.
+ */
+export async function getUserItemCount(userId: string): Promise<number> {
+  return prisma.item.count({ where: { userId } });
+}

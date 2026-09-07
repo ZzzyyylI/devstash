@@ -349,3 +349,12 @@ export async function deleteCollection(id: string): Promise<boolean> {
   });
   return count > 0;
 }
+
+/**
+ * How many collections a specific user owns. Explicit `userId` (not
+ * `getDemoUserId()`) so the Phase 2 free-plan create gate can pass the session
+ * user. Distinct from the pre-existing demo-scoped `getCollectionCount()`.
+ */
+export async function getUserCollectionCount(userId: string): Promise<number> {
+  return prisma.collection.count({ where: { userId } });
+}
