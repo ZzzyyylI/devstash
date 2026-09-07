@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getDemoUserId } from "@/lib/db/user";
+import type { CreateCollectionInput } from "@/lib/validations/collection";
 
 export interface CollectionItemType {
   id: string;
@@ -108,4 +109,32 @@ export async function getCollectionCount(): Promise<number> {
   if (!userId) return 0;
 
   return prisma.collection.count({ where: { userId } });
+}
+
+export interface CreatedCollection {
+  id: string;
+  name: string;
+  description: string | null;
+  isFavorite: boolean;
+}
+
+/**
+ * Create a collection for the demo user from the "New Collection" dialog.
+ * User-scoped via `getDemoUserId()` like the rest of this module; returns the
+ * new row, or `null` when there's no demo user.
+ */
+export async function createCollection(
+  data: CreateCollectionInput,
+): Promise<CreatedCollection | null> {
+  const userId = await getDemoUserId();
+  if (!userId) return null;
+
+  return prisma.collection.create({
+    data: {
+      name: data.name,
+      description: data.description,
+      userId,
+    },
+    select: { id: true, name: true, description: true, isFavorite: true },
+  });
 }
