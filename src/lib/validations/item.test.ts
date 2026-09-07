@@ -100,6 +100,41 @@ describe("updateItemSchema", () => {
     ).toEqual(["react", "hooks"]);
   });
 
+  it("trims, drops blank, and de-dupes collectionIds", () => {
+    expect(
+      updateItemSchema.parse({
+        ...base,
+        collectionIds: [" col_1 ", "col_1", "", "  ", "col_2"],
+      }).collectionIds,
+    ).toEqual(["col_1", "col_2"]);
+  });
+
+  it("defaults a missing / null collectionIds to an empty array", () => {
+    expect(updateItemSchema.parse({ ...base }).collectionIds).toEqual([]);
+    expect(
+      updateItemSchema.parse({ ...base, collectionIds: null }).collectionIds,
+    ).toEqual([]);
+  });
+
+  it("rejects a non-array collectionIds", () => {
+    const result = updateItemSchema.safeParse({
+      ...base,
+      collectionIds: "col_1",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("caps collectionIds at 100", () => {
+    const ids = Array.from({ length: 101 }, (_, i) => `col_${i}`);
+    const result = updateItemSchema.safeParse({ ...base, collectionIds: ids });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.collectionIds?.[0]).toMatch(
+        /max 100/i,
+      );
+    }
+  });
+
   it("defaults missing optional fields", () => {
     const parsed = updateItemSchema.parse({ title: "Only a title" });
     expect(parsed).toMatchObject({
@@ -109,6 +144,7 @@ describe("updateItemSchema", () => {
       url: null,
       language: null,
       tags: [],
+      collectionIds: [],
     });
   });
 });

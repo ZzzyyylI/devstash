@@ -10,6 +10,7 @@ import type { ItemDetailJson } from "@/components/items/item-detail-json";
 import { Field } from "@/components/items/item-form/Field";
 import { textareaClass } from "@/components/items/item-form/field-styles";
 import { ItemContentField } from "@/components/items/item-form/ItemContentField";
+import { CollectionPicker } from "@/components/items/item-form/CollectionPicker";
 
 /**
  * Inline edit form for the item drawer — replaces the action bar (with
@@ -37,6 +38,9 @@ export function ItemEditForm({
   const [content, setContent] = useState(detail.content ?? "");
   const [language, setLanguage] = useState(detail.language ?? "");
   const [url, setUrl] = useState(detail.url ?? "");
+  const [collectionIds, setCollectionIds] = useState(
+    detail.collections.map((collection) => collection.id),
+  );
   const [pending, setPending] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
 
@@ -56,6 +60,7 @@ export function ItemEditForm({
       content: showContent ? content : null,
       language: showLanguage ? language : null,
       url: showUrl ? url : null,
+      collectionIds,
     });
 
     setPending(false);
@@ -154,6 +159,13 @@ export function ItemEditForm({
             placeholder="react, hooks, patterns"
           />
         </Field>
+
+        <CollectionPicker
+          selected={collectionIds}
+          onChange={setCollectionIds}
+          disabled={pending}
+          error={fieldErrors.collectionIds}
+        />
       </div>
     </form>
   );

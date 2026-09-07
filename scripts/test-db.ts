@@ -39,8 +39,8 @@ async function main() {
         orderBy: { name: "asc" },
         include: {
           items: {
-            orderBy: { title: "asc" },
-            include: { type: true },
+            orderBy: { item: { title: "asc" } },
+            include: { item: { include: { type: true } } },
           },
         },
       },
@@ -61,7 +61,7 @@ async function main() {
   console.log(`\nCollections (${demo.collections.length}), items (${itemTotal}):`);
   for (const collection of demo.collections) {
     console.log(`\n  ${collection.name} - ${collection.description}`);
-    for (const item of collection.items) {
+    for (const { item } of collection.items) {
       const detail = item.url ?? (item.content ?? "").split("\n")[0];
       console.log(
         `    [${item.type.name.padEnd(8)}] ${item.title.padEnd(32)} ${detail.slice(0, 60)}`,

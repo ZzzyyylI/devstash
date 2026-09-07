@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // real database (same pattern as src/lib/tokens.test.ts).
 const collection = {
   create: vi.fn(),
+  findMany: vi.fn(),
 };
 vi.mock("@/lib/prisma", () => ({
   prisma: { collection },
@@ -12,10 +13,13 @@ vi.mock("@/lib/prisma", () => ({
 const getDemoUserId = vi.fn();
 vi.mock("@/lib/db/user", () => ({ getDemoUserId }));
 
-const { createCollection } = await import("@/lib/db/collections");
+const { createCollection, getCollectionOptions } = await import(
+  "@/lib/db/collections"
+);
 
 beforeEach(() => {
   collection.create.mockReset();
+  collection.findMany.mockReset();
   getDemoUserId.mockReset();
   getDemoUserId.mockResolvedValue("user_1");
 });
@@ -66,5 +70,33 @@ describe("createCollection", () => {
       description: null,
       userId: "user_1",
     });
+  });
+});
+
+describe("getCollectionOptions", () => {
+  it("returns an empty list and never queries when there is no demo user", async () => {
+    getDemoUserId.mockResolvedValue(null);
+
+    const result = await getCollectionOptions();
+
+    expect(result).toEqual([]);
+    expect(collection.findMany).not.toHaveBeenCalled();
+  });
+
+  it("returns the user's collections as id+name, ordered by name", async () => {
+    const rows = [
+      { id: "col_1", name: "AI Workflows" },
+      { id: "col_2", name: "React Patterns" },
+    ];
+    collection.findMany.mockResolvedValue(rows);
+
+    const result = await getCollectionOptions();
+
+    expect(collection.findMany).toHaveBeenCalledWith({
+      where: { userId: "user_1" },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    });
+    expect(result).toBe(rows);
   });
 });

@@ -33,15 +33,22 @@ async function fetchCollectionsWithStats(
     include: {
       items: {
         select: {
-          type: { select: { id: true, name: true, icon: true, color: true } },
+          item: {
+            select: {
+              type: {
+                select: { id: true, name: true, icon: true, color: true },
+              },
+            },
+          },
         },
       },
     },
   });
 
   return collections.map((collection) => {
+    const items = collection.items.map((link) => link.item);
     const counts = new Map<string, { type: CollectionItemType; count: number }>();
-    for (const item of collection.items) {
+    for (const item of items) {
       const entry = counts.get(item.type.id);
       if (entry) {
         entry.count += 1;
@@ -60,7 +67,7 @@ async function fetchCollectionsWithStats(
       name: collection.name,
       description: collection.description,
       isFavorite: collection.isFavorite,
-      itemCount: collection.items.length,
+      itemCount: items.length,
       primaryType: primaryType?.type ?? null,
       types: types.map((entry) => entry.type),
     };
@@ -83,6 +90,26 @@ export async function getSidebarCollections(): Promise<CollectionWithStats[]> {
   if (!userId) return [];
 
   return fetchCollectionsWithStats(userId);
+}
+
+export interface CollectionOption {
+  id: string;
+  name: string;
+}
+
+/**
+ * The demo user's collections as `{ id, name }`, ordered by name — for the
+ * item form's collection picker. Served by `GET /api/collections`.
+ */
+export async function getCollectionOptions(): Promise<CollectionOption[]> {
+  const userId = await getDemoUserId();
+  if (!userId) return [];
+
+  return prisma.collection.findMany({
+    where: { userId },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
 }
 
 export interface CollectionStats {

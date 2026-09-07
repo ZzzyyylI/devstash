@@ -15,6 +15,7 @@ import { FileUpload, type UploadedFile } from "@/components/items/FileUpload";
 import { Field } from "@/components/items/item-form/Field";
 import { textareaClass } from "@/components/items/item-form/field-styles";
 import { ItemContentField } from "@/components/items/item-form/ItemContentField";
+import { CollectionPicker } from "@/components/items/item-form/CollectionPicker";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +34,7 @@ function emptyForm(type: CreateItemType) {
     language: "",
     url: "",
     tagsInput: "",
+    collectionIds: [] as string[],
     file: null as UploadedFile | null,
   };
 }
@@ -105,6 +107,7 @@ export function NewItemDialog({
       content: showContent ? form.content : null,
       language: showLanguage ? form.language : null,
       url: showUrl ? form.url : null,
+      collectionIds: form.collectionIds,
       fileKey: showFileUpload ? (form.file?.key ?? null) : null,
       fileName: showFileUpload ? (form.file?.name ?? null) : null,
       fileSize: showFileUpload ? (form.file?.size ?? null) : null,
@@ -241,6 +244,13 @@ export function NewItemDialog({
               placeholder="react, hooks, patterns"
             />
           </Field>
+
+          <CollectionPicker
+            selected={form.collectionIds}
+            onChange={(ids) => set("collectionIds", ids)}
+            disabled={pending}
+            error={fieldErrors.collectionIds}
+          />
 
           <DialogFooter className="pt-1">
             <Button
