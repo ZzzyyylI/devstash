@@ -6,6 +6,7 @@ import { FolderPlus, PanelLeft, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NewItemDialog } from "@/components/items/NewItemDialog";
+import { NewCollectionDialog } from "@/components/collections/NewCollectionDialog";
 
 interface TopBarProps {
   /** Opens the mobile navigation drawer. */
@@ -15,11 +16,12 @@ interface TopBarProps {
 }
 
 /**
- * Dashboard top action bar. The "New Item" button opens the create-item modal;
- * search and "New Collection" are still display only.
+ * Dashboard top action bar. The "New Item" and "New Collection" buttons open
+ * their respective create modals; search is still display only.
  */
 export function TopBar({ onOpenSidebar, onToggleSidebar }: TopBarProps) {
   const [newItemOpen, setNewItemOpen] = useState(false);
+  const [newCollectionOpen, setNewCollectionOpen] = useState(false);
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
@@ -57,7 +59,11 @@ export function TopBar({ onOpenSidebar, onToggleSidebar }: TopBarProps) {
       </div>
 
       <div className="ml-auto flex items-center gap-2">
-        <Button variant="outline" size="lg" disabled>
+        <Button
+          variant="outline"
+          size="lg"
+          onClick={() => setNewCollectionOpen(true)}
+        >
           <FolderPlus />
           New Collection
         </Button>
@@ -68,6 +74,10 @@ export function TopBar({ onOpenSidebar, onToggleSidebar }: TopBarProps) {
       </div>
 
       <NewItemDialog open={newItemOpen} onOpenChange={setNewItemOpen} />
+      <NewCollectionDialog
+        open={newCollectionOpen}
+        onOpenChange={setNewCollectionOpen}
+      />
     </header>
   );
 }
