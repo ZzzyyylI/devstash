@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { buildObjectKey, isR2Configured, putObject } from "@/lib/r2";
 import { validateUpload, type UploadKind } from "@/lib/file-constraints";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -26,6 +27,27 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { success: false, error: "You must be signed in to upload files." },
       { status: 401 },
+    );
+  }
+
+  const limit = await checkRateLimit({
+    request,
+    name: "upload",
+    limit: 30,
+    window: "5 m",
+    identifier: session.user.id,
+  });
+  if (!limit.success) {
+    const retryAfter = Math.max(
+      1,
+      Math.ceil((limit.reset - Date.now()) / 1000),
+    );
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Too many uploads. Please slow down and try again shortly.",
+      },
+      { status: 429, headers: { "Retry-After": String(retryAfter) } },
     );
   }
 
