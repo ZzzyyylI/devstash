@@ -181,6 +181,24 @@ export async function getAllItems(): Promise<ItemWithType[]> {
 }
 
 /**
+ * Every one of the demo user's favorited items, most recently updated first —
+ * the item half of the /favorites page. Same card shape as `getRecentItems`,
+ * filtered to `isFavorite` and uncapped.
+ */
+export async function getFavoriteItems(): Promise<ItemWithType[]> {
+  const userId = await getDemoUserId();
+  if (!userId) return [];
+
+  const items = await prisma.item.findMany({
+    where: { userId, isFavorite: true },
+    orderBy: { updatedAt: "desc" },
+    include: ITEM_INCLUDE,
+  });
+
+  return items.map(toItemWithType);
+}
+
+/**
  * One page of the demo user's items of a given type, most recently updated
  * first, for the /items/[type] list view.
  */

@@ -171,6 +171,41 @@ export async function getSearchCollections(): Promise<SearchCollection[]> {
   }));
 }
 
+export interface FavoriteCollection {
+  id: string;
+  name: string;
+  itemCount: number;
+  updatedAt: Date;
+}
+
+/**
+ * All of the demo user's favorited collections, most recently updated first —
+ * the collection half of the /favorites page. `itemCount` comes from a `_count`
+ * aggregate, same as `getSearchCollections`.
+ */
+export async function getFavoriteCollections(): Promise<FavoriteCollection[]> {
+  const userId = await getDemoUserId();
+  if (!userId) return [];
+
+  const rows = await prisma.collection.findMany({
+    where: { userId, isFavorite: true },
+    orderBy: { updatedAt: "desc" },
+    select: {
+      id: true,
+      name: true,
+      updatedAt: true,
+      _count: { select: { items: true } },
+    },
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    itemCount: row._count.items,
+    updatedAt: row.updatedAt,
+  }));
+}
+
 export interface CollectionStats {
   total: number;
   favorites: number;
