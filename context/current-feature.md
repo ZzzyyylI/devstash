@@ -8,7 +8,7 @@ Code Breakup — Extract Shared Functions, Components & Utilities
 
 <!-- Not Started|In Progress|Completed -->
 
-In Progress
+Completed
 
 ## Goals
 
@@ -110,7 +110,22 @@ Item-type concerns are a distinct seam: `ItemTypeWithCount`, `TYPE_ORDER`, `comp
 
 ### 9. (minor) `src/actions/items.ts` — auth-gate wrapper
 
-`updateItem` / `createItem` / `deleteItem` each open with the same `auth()` → `session?.user?.id` guard and wrap the body in a try/catch returning `{ success: false, error: "<generic>" }`. Extract a `withAuthedAction(fn)` wrapper **or** just a `requireUserId()` + `actionError(msg)` pair. Low value (3 call sites) — do it only if it reads cleaner, skip otherwise.
+**Skipped** (as the spec allowed). The three actions have different signatures and per-action error strings; a `withAuthedAction` wrapper would add indirection to security-sensitive server actions without making them meaningfully shorter, and the current code is trivially auditable. `ActionResult<T>` is already shared.
+
+## Implementation
+
+Nine `refactor:` commits on `refactor/code-breakup` (branched from `main` after Low-Risk Fixes Batch). All pure — no behaviour change, no new deps.
+
+- **1** New `src/lib/item-type-fields.ts` (`itemTypeFields` +7 tests), `src/lib/tags.ts` (`parseTagsInput` +5 tests), `src/components/items/item-form/` (`Field`, `field-styles`, `ItemContentField`). `NewItemDialog` 322→263, `ItemEditForm` no longer redeclares the kit.
+- **2** `ItemDrawer.tsx` 679→328: `ItemEditForm.tsx`, `FilePreview.tsx`, `item-drawer/{Section,ActionButton,DetailSkeleton}.tsx`, `item-detail-json.ts` split out.
+- **3** `src/lib/format-date.ts` (`formatShortDate` / `formatMediumDate` / `formatLongDate`, +4 tests) — 6 inline formatters (3 byte-identical) replaced.
+- **4** `src/lib/use-copy-to-clipboard.ts` — the Copy→Check logic (3 copies) unified; `CodeEditor` also gained its previously-missing timeout cleanup.
+- **5** `src/lib/upload-client.ts` (`uploadFile`, +6 tests covering the response-parse branch); `FileUpload` 272→237, drives it via an `AbortController`. `UploadedFile` moved there (re-exported).
+- **6** `src/lib/validations/field-errors.ts` (`collectFieldErrors` +4 tests), `src/lib/post-json.ts` (`postJson` +4 tests), `AuthField.tsx`, `FormError.tsx`. `RegisterForm` / `ResetPasswordForm` / `ChangePasswordForm` rewired; `SignInForm` / `ForgotPasswordForm` use `<FormError>`.
+- **7** `src/lib/api/request.ts` (`readJsonBody` + `INVALID_JSON`, `invalidJsonResponse`, `validationErrorResponse`, +6 tests) — 5 auth routes rewired (email-only endpoints keep their detail-less 400 via `includeDetails=false`).
+- **8** `src/lib/db/item-types.ts` (95 lines) split from `src/lib/db/items.ts` (425→332); 5 import sites updated.
+
+`npm run test` **159 pass** (was 123 → +36), `npm run lint`, `npm run build` — all green. Browser-verified (Playwright, demo session, live R2 + Neon): snippet drawer edit → Monaco via `ItemContentField` → Save persisted new tags; New Item dialog `link` → correct fields via `itemTypeFields` → created + shows in Recent → deleted (7→6); drawer read view renders (URL / Tags / Details "September 6, 2026" via `formatLongDate`); image upload via `uploadFile` completed with the `next/image` blob preview + Create enabled (dialog cancelled — leaves one orphaned R2 test object, ~9 KB). `register`/`reset`/`change` not clicked (signed-in session redirects away) but covered by the new unit tests + build. Dev DB re-seeded afterward.
 
 ## Notes
 
