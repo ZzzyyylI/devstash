@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { DropdownMenu } from "radix-ui";
-import { ChevronsUpDown, LogOut, UserRound } from "lucide-react";
+import { ChevronsUpDown, LogOut, Settings, UserRound } from "lucide-react";
 import { signOut } from "next-auth/react";
 
 import { cn } from "@/lib/utils";
@@ -24,7 +24,7 @@ interface SidebarUserProps {
 
 /**
  * Bottom-of-sidebar account control. The avatar links to `/profile`; the
- * chevron opens an upward menu with a sign-out action.
+ * chevron opens an upward menu with profile, settings, and sign-out actions.
  */
 export function SidebarUser({ user, collapsed, onNavigate }: SidebarUserProps) {
   const router = useRouter();
@@ -87,6 +87,16 @@ export function SidebarUser({ user, collapsed, onNavigate }: SidebarUserProps) {
                     >
                       <UserRound className="size-4" />
                       Profile
+                    </Link>
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item asChild>
+                    <Link
+                      href="/settings"
+                      onClick={onNavigate}
+                      className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground"
+                    >
+                      <Settings className="size-4" />
+                      Settings
                     </Link>
                   </DropdownMenu.Item>
                   <DropdownMenu.Separator className="my-1 h-px bg-border" />

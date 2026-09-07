@@ -1,18 +1,31 @@
 # Current Feature
 
-_None — ready for the next feature._
+Settings page + sidebar link.
 
 ## Status
 
-Completed
+In progress
 
 ## Goals
 
-_None._
+- Add a "Settings" link to the user dropdown at the bottom of the sidebar
+  (`SidebarUser`), pointing to `/settings`.
+- New protected `/settings` route (added to the `src/proxy.ts` middleware
+  matcher, session-guarded in the page like `/profile`).
+- Move the "account actions" off the profile page onto `/settings`: the
+  change-password control and the delete-account dialog. Profile keeps the
+  avatar/badges/stats and gains a link through to settings.
 
 ## Notes
 
-_None._
+- `ChangePasswordForm` / `DeleteAccountDialog` moved from
+  `src/components/profile/` to `src/components/settings/` (only the profile page
+  imported them). `ProfileStats` stays in `profile/`.
+- New `requireProfileUser(callbackPath)` in `src/lib/db/profile.ts` — folds the
+  `auth()` → session-id → `getProfileUser` → redirect-to-sign-in dance that
+  both `/profile` and `/settings` were duplicating into one helper (returns a
+  `ProfileUser`, encodes the `callbackUrl`). `profile.test.ts` added (+3 tests).
+  Profile page now fetches stats after the user instead of in a `Promise.all`.
 
 ## History
 
