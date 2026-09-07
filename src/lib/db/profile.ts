@@ -1,10 +1,13 @@
+import { redirect } from "next/navigation";
+
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { compareTypeOrder } from "@/lib/db/item-types";
 
 /**
- * Data for the `/profile` page. Unlike the rest of `src/lib/db/*` (which is
- * scoped to the seeded demo user for the dashboard), these helpers take the
- * signed-in user's id — the profile page is always about the current session.
+ * Data for the `/profile` and `/settings` pages. Unlike the rest of
+ * `src/lib/db/*` (which is scoped to the seeded demo user for the dashboard),
+ * these helpers are about the current session's user.
  */
 
 export interface ProfileUser {
@@ -39,6 +42,24 @@ export async function getProfileUser(
 
   const { password, ...rest } = user;
   return { ...rest, hasPassword: password !== null };
+}
+
+/**
+ * Load the signed-in user for a protected account page, or bounce to sign-in
+ * with a `callbackUrl` back to `callbackPath`. Covers both cases: no session,
+ * and a session whose user row no longer exists.
+ */
+export async function requireProfileUser(
+  callbackPath: string,
+): Promise<ProfileUser> {
+  const session = await auth();
+  const user = session?.user?.id
+    ? await getProfileUser(session.user.id)
+    : null;
+  if (!user) {
+    redirect(`/sign-in?callbackUrl=${encodeURIComponent(callbackPath)}`);
+  }
+  return user;
 }
 
 export interface ProfileTypeCount {

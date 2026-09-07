@@ -1,14 +1,10 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { ArrowLeft, BadgeCheck, Calendar } from "lucide-react";
 
-import { auth } from "@/auth";
 import { UserAvatar } from "@/components/ui/user-avatar";
-import { getProfileUser, getProfileStats } from "@/lib/db/profile";
+import { requireProfileUser, getProfileStats } from "@/lib/db/profile";
 import { formatLongDate } from "@/lib/format-date";
 import { ProfileStats } from "@/components/profile/ProfileStats";
-import { ChangePasswordForm } from "@/components/profile/ChangePasswordForm";
-import { DeleteAccountDialog } from "@/components/profile/DeleteAccountDialog";
 
 export const dynamic = "force-dynamic";
 
@@ -17,14 +13,8 @@ export const metadata = {
 };
 
 export default async function ProfilePage() {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/sign-in?callbackUrl=/profile");
-
-  const [user, stats] = await Promise.all([
-    getProfileUser(session.user.id),
-    getProfileStats(session.user.id),
-  ]);
-  if (!user) redirect("/sign-in?callbackUrl=/profile");
+  const user = await requireProfileUser("/profile");
+  const stats = await getProfileStats(user.id);
 
   const memberSince = formatLongDate(user.createdAt);
 
@@ -72,29 +62,19 @@ export default async function ProfilePage() {
         <ProfileStats stats={stats} />
       </div>
 
-      <section className="mt-10 space-y-4">
+      <section className="mt-10">
         <h2 className="text-sm font-medium text-muted-foreground">Account</h2>
-
-        {user.hasPassword && (
-          <div className="rounded-xl border border-border bg-card p-4">
-            <p className="text-sm font-medium">Password</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Change the password you use to sign in.
-            </p>
-            <div className="mt-3">
-              <ChangePasswordForm email={user.email} />
-            </div>
-          </div>
-        )}
-
-        <div className="rounded-xl border border-destructive/30 bg-card p-4">
-          <p className="text-sm font-medium text-destructive">Delete account</p>
+        <div className="mt-4 rounded-xl border border-border bg-card p-4">
+          <p className="text-sm font-medium">Account settings</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Permanently remove your account and everything stored in it.
+            Change your password or delete your account.
           </p>
-          <div className="mt-3">
-            <DeleteAccountDialog email={user.email} />
-          </div>
+          <Link
+            href="/settings"
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary transition-colors hover:underline"
+          >
+            Go to settings
+          </Link>
         </div>
       </section>
     </main>

@@ -18,8 +18,8 @@ type ChangePasswordErrors = FieldErrors<
 >;
 
 /**
- * Collapsible "change password" control for the profile page. Only rendered for
- * email/password accounts (the profile page checks `hasPassword`). Posts to
+ * Collapsible "change password" control for the settings page. Only rendered for
+ * email/password accounts (the settings page checks `hasPassword`). Posts to
  * `POST /api/auth/change-password`, which re-checks the current password.
  */
 export function ChangePasswordForm({ email }: { email: string }) {
