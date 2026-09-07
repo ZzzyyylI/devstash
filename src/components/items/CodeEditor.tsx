@@ -7,39 +7,22 @@ import { Check, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCopyToClipboard } from "@/lib/use-copy-to-clipboard";
 import { toMonacoLanguage } from "@/lib/code-editor";
+import { monacoThemeName, toMonacoEditorOptions } from "@/lib/editor-preferences";
+import { useEditorPreferencesValue } from "@/components/editor-preferences/EditorPreferencesProvider";
+import { registerMonacoThemes } from "@/components/items/monaco-themes";
 
 /** Editor grows with its content between these bounds; past the max it scrolls. */
 const MIN_HEIGHT = 96;
 const MAX_HEIGHT = 400;
-const LINE_HEIGHT = 20;
 const VERTICAL_PADDING = 24;
 
 function clampHeight(height: number): number {
   return Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, Math.ceil(height)));
 }
 
-function estimateHeight(value: string): number {
+function estimateHeight(value: string, lineHeight: number): number {
   const lines = value ? value.split("\n").length : 1;
-  return clampHeight(lines * LINE_HEIGHT + VERTICAL_PADDING);
-}
-
-/** vs-dark tuned to the app's surfaces, with a subtle theme-matched scrollbar. */
-function defineTheme(monaco: Monaco) {
-  monaco.editor.defineTheme("devstash-dark", {
-    base: "vs-dark",
-    inherit: true,
-    rules: [],
-    colors: {
-      "editor.background": "#1e1e1e",
-      "editorGutter.background": "#1e1e1e",
-      "editorLineNumber.foreground": "#ffffff40",
-      "editorLineNumber.activeForeground": "#ffffff99",
-      "scrollbarSlider.background": "#ffffff1f",
-      "scrollbarSlider.hoverBackground": "#ffffff33",
-      "scrollbarSlider.activeBackground": "#ffffff4d",
-      "editorOverviewRuler.border": "#00000000",
-    },
-  });
+  return clampHeight(lines * lineHeight + VERTICAL_PADDING);
 }
 
 interface CodeEditorProps {
@@ -56,6 +39,10 @@ interface CodeEditorProps {
  * Monaco-backed code view/editor for snippet & command content. macOS-style
  * window dots plus a language label and copy button sit in the header; the body
  * grows with its content up to {@link MAX_HEIGHT}px, then scrolls.
+ *
+ * Font size, tab size, word wrap, minimap and theme come from the user's editor
+ * preferences (see `EditorPreferencesProvider`); they fall back to sensible
+ * defaults when rendered outside a provider.
  */
 export function CodeEditor({
   value,
@@ -66,11 +53,15 @@ export function CodeEditor({
   className,
 }: CodeEditorProps) {
   const isReadOnly = readOnly || !onChange;
-  const [height, setHeight] = useState(() => estimateHeight(value));
+  const preferences = useEditorPreferencesValue();
+  const preferenceOptions = toMonacoEditorOptions(preferences);
+  const [height, setHeight] = useState(() =>
+    estimateHeight(value, preferenceOptions.lineHeight),
+  );
   const { copied, copy } = useCopyToClipboard();
 
   const handleBeforeMount = useCallback((monaco: Monaco) => {
-    defineTheme(monaco);
+    registerMonacoThemes(monaco);
   }, []);
 
   const handleMount = useCallback<OnMount>(
@@ -123,7 +114,7 @@ export function CodeEditor({
         height={height}
         language={toMonacoLanguage(language)}
         value={value}
-        theme="devstash-dark"
+        theme={monacoThemeName(preferences.theme)}
         beforeMount={handleBeforeMount}
         onMount={handleMount}
         onChange={
@@ -137,10 +128,7 @@ export function CodeEditor({
         options={{
           readOnly: isReadOnly,
           domReadOnly: isReadOnly,
-          minimap: { enabled: false },
           scrollBeyondLastLine: false,
-          fontSize: 13,
-          lineHeight: LINE_HEIGHT,
           fontFamily:
             "var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace",
           padding: { top: 12, bottom: 12 },
@@ -151,8 +139,6 @@ export function CodeEditor({
           overviewRulerBorder: false,
           hideCursorInOverviewRuler: true,
           contextmenu: !isReadOnly,
-          tabSize: 2,
-          wordWrap: "off",
           smoothScrolling: true,
           automaticLayout: true,
           scrollbar: {
@@ -161,6 +147,7 @@ export function CodeEditor({
             useShadows: false,
             alwaysConsumeMouseWheel: false,
           },
+          ...preferenceOptions,
         }}
       />
     </div>
