@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import { createItem } from "@/actions/items";
+import { Badge } from "@/components/ui/badge";
 import { CREATE_ITEM_TYPES, type CreateItemType } from "@/lib/validations/item";
 import { itemTypeFields } from "@/lib/item-type-fields";
 import { parseTagsInput } from "@/lib/tags";
@@ -44,7 +46,16 @@ interface NewItemDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Type to pre-select each time the dialog opens. Defaults to "snippet". */
   initialType?: CreateItemType;
+  /**
+   * Whether the signed-in user is on Pro. When `false` the `file` type is
+   * disabled with a "Pro" hint — cosmetic only; `createItem` / the upload route
+   * are the real gate.
+   */
+  isPro: boolean;
 }
+
+/** Item types that require DevStash Pro. `image` uploads stay free. */
+const PRO_ITEM_TYPES = new Set<CreateItemType>(["file"]);
 
 /**
  * "New Item" modal, opened from the top bar or a type page's Add button. A type
@@ -58,10 +69,16 @@ export function NewItemDialog({
   open,
   onOpenChange,
   initialType = "snippet",
+  isPro,
 }: NewItemDialogProps) {
   const router = useRouter();
 
-  const [form, setForm] = useState(() => emptyForm(initialType));
+  // A free user can't start on a Pro-only type (e.g. opening "New file" from the
+  // /items/file page) — fall back to a snippet.
+  const startType =
+    !isPro && PRO_ITEM_TYPES.has(initialType) ? "snippet" : initialType;
+
+  const [form, setForm] = useState(() => emptyForm(startType));
   const [pending, setPending] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
 
@@ -71,7 +88,7 @@ export function NewItemDialog({
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
-    setForm(emptyForm(initialType));
+    setForm(emptyForm(startType));
     setFieldErrors({});
     setPending(false);
   }
@@ -122,7 +139,7 @@ export function NewItemDialog({
     }
 
     toast.success("Item created");
-    setForm(emptyForm(initialType));
+    setForm(emptyForm(startType));
     onOpenChange(false);
     router.refresh();
   }
@@ -150,23 +167,54 @@ export function NewItemDialog({
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium">Type</label>
             <div className="flex flex-wrap gap-1.5">
-              {CREATE_ITEM_TYPES.map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => set("type", type)}
-                  aria-pressed={form.type === type}
-                  className={cn(
-                    "cursor-pointer rounded-md border px-2.5 py-1 text-sm capitalize transition-colors",
-                    form.type === type
-                      ? "border-primary bg-primary/10 text-foreground"
-                      : "border-input text-muted-foreground hover:bg-muted hover:text-foreground",
-                  )}
-                >
-                  {type}
-                </button>
-              ))}
+              {CREATE_ITEM_TYPES.map((type) => {
+                const locked = !isPro && PRO_ITEM_TYPES.has(type);
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    disabled={locked}
+                    onClick={() => set("type", type)}
+                    aria-pressed={form.type === type}
+                    title={
+                      locked ? "File uploads are a Pro feature" : undefined
+                    }
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-sm capitalize transition-colors",
+                      locked
+                        ? "cursor-not-allowed border-input text-muted-foreground/60"
+                        : "cursor-pointer",
+                      !locked && form.type === type
+                        ? "border-primary bg-primary/10 text-foreground"
+                        : !locked &&
+                            "border-input text-muted-foreground hover:bg-muted hover:text-foreground",
+                    )}
+                  >
+                    {type}
+                    {locked && (
+                      <Badge
+                        variant="outline"
+                        className="ml-0.5 px-1 py-0 text-[9px] leading-none"
+                      >
+                        PRO
+                      </Badge>
+                    )}
+                  </button>
+                );
+              })}
             </div>
+            {!isPro && (
+              <p className="text-xs text-muted-foreground">
+                File uploads are a Pro feature.{" "}
+                <Link
+                  href="/settings"
+                  className="font-medium text-foreground underline underline-offset-2"
+                >
+                  Upgrade
+                </Link>
+                .
+              </p>
+            )}
             {fieldErrors.type && fieldErrors.type.length > 0 && (
               <p className="text-xs text-destructive">{fieldErrors.type[0]}</p>
             )}

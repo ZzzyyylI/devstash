@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { deleteAccountSchema } from "@/lib/validations/auth";
+import { getStripe } from "@/lib/stripe/client";
 
 /**
  * POST /api/auth/delete-account  { confirmation }
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { id: true, email: true },
+    select: { id: true, email: true, stripeSubscriptionId: true },
   });
   if (!user) {
     // Session outlived the account — nothing left to delete.
@@ -56,6 +57,18 @@ export async function POST(request: Request) {
       { success: false, error: "That doesn't match your email address." },
       { status: 400 },
     );
+  }
+
+  // Best-effort: cancel any live Stripe subscription so the deleted user isn't
+  // billed again. A failure here (Stripe down, already cancelled) must not block
+  // account deletion — the customer is orphaned at worst.
+  const stripe = getStripe();
+  if (stripe && user.stripeSubscriptionId) {
+    try {
+      await stripe.subscriptions.cancel(user.stripeSubscriptionId);
+    } catch (error) {
+      console.error("[stripe] failed to cancel subscription on account delete", error);
+    }
   }
 
   await prisma.user.delete({ where: { id: user.id } });

@@ -24,6 +24,7 @@ const dbUser = {
   emailVerified: new Date("2026-01-01"),
   isPro: false,
   password: "hashed",
+  stripeCustomerId: null,
   createdAt: new Date("2026-01-01"),
 };
 
@@ -66,9 +67,11 @@ describe("requireProfileUser", () => {
       emailVerified: dbUser.emailVerified,
       isPro: false,
       hasPassword: true,
+      hasStripeCustomer: false,
       createdAt: dbUser.createdAt,
     });
     expect(result).not.toHaveProperty("password");
+    expect(result).not.toHaveProperty("stripeCustomerId");
     expect(redirect).not.toHaveBeenCalled();
   });
 });

@@ -22,6 +22,8 @@ interface DashboardShellProps {
   user: SidebarUserData;
   /** The full items + collections dataset for the Cmd+K command palette. */
   searchIndex: SearchIndex;
+  /** Whether the signed-in user is on Pro (gates the `file` item type). */
+  isPro: boolean;
 }
 
 /**
@@ -34,6 +36,7 @@ export function DashboardShell({
   collections,
   user,
   searchIndex,
+  isPro,
 }: DashboardShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -88,6 +91,7 @@ export function DashboardShell({
           onToggleSidebar={() => setCollapsed((v) => !v)}
           searchItems={searchIndex.items}
           searchCollections={searchIndex.collections}
+          isPro={isPro}
         />
         <main className="flex-1 p-6">{children}</main>
       </div>
