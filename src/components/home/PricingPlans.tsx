@@ -3,18 +3,50 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Check } from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { postJson } from "@/lib/post-json";
 import { FREE_FEATURES, PRICING, PRO_FEATURES } from "@/lib/home-content";
 
 type Period = "monthly" | "yearly";
 
-/** Billing toggle + the Free / Pro plan cards. */
-export function PricingPlans() {
+/**
+ * Billing toggle + the Free / Pro plan cards.
+ *
+ * Signed-out visitors are routed to `/register`. A signed-in visitor can start
+ * Stripe Checkout for the toggled period straight from the Pro card; entitlement
+ * is still granted by the webhook, not the return URL.
+ */
+export function PricingPlans({ signedIn = false }: { signedIn?: boolean }) {
   const [period, setPeriod] = useState<Period>("monthly");
+  const [pending, setPending] = useState(false);
   const pro = PRICING[period];
+
+  async function startCheckout() {
+    if (pending) return;
+    setPending(true);
+
+    const res = await postJson<{ data?: { url?: string | null } }>(
+      "/api/stripe/checkout",
+      { interval: period },
+    );
+    const url = res.data?.data?.url;
+
+    if (res.ok && url) {
+      window.location.assign(url);
+      return;
+    }
+
+    setPending(false);
+    toast.error(
+      res.status === 409
+        ? "You're already on Pro."
+        : "Could not start checkout. Try again.",
+    );
+  }
 
   return (
     <>
@@ -54,7 +86,9 @@ export function PricingPlans() {
           features={FREE_FEATURES}
           cta={
             <Button asChild variant="outline" className="w-full">
-              <Link href="/register">Get started</Link>
+              <Link href={signedIn ? "/dashboard" : "/register"}>
+                {signedIn ? "Go to dashboard" : "Get started"}
+              </Link>
             </Button>
           }
         />
@@ -66,9 +100,19 @@ export function PricingPlans() {
           period={pro.period}
           features={PRO_FEATURES}
           cta={
-            <Button asChild className="w-full">
-              <Link href="/register">Go Pro</Link>
-            </Button>
+            signedIn ? (
+              <Button
+                className="w-full"
+                disabled={pending}
+                onClick={startCheckout}
+              >
+                {pending ? "Redirecting…" : "Go Pro"}
+              </Button>
+            ) : (
+              <Button asChild className="w-full">
+                <Link href="/register">Go Pro</Link>
+              </Button>
+            )
           }
         />
       </div>

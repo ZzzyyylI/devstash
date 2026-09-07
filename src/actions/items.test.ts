@@ -16,6 +16,15 @@ vi.mock("@/lib/db/items", () => ({
   setItemFavorite: setItemFavoriteQuery,
 }));
 
+// `@/lib/stripe/limits` hits Prisma for the free-plan count — mock it. The
+// limits module has its own unit test (`src/lib/stripe/limits.test.ts`).
+const checkItemLimit = vi.fn();
+vi.mock("@/lib/stripe/limits", () => ({
+  checkItemLimit,
+  limitErrorMessage: (kind: "item" | "collection") =>
+    `You've reached the free plan limit of ${kind}s.`,
+}));
+
 const { createItem, updateItem, deleteItem, setItemFavorite } = await import(
   "@/actions/items"
 );
@@ -36,7 +45,9 @@ beforeEach(() => {
   updateItemQuery.mockReset();
   deleteItemQuery.mockReset();
   setItemFavoriteQuery.mockReset();
-  auth.mockResolvedValue({ user: { id: "user_1" } });
+  checkItemLimit.mockReset();
+  auth.mockResolvedValue({ user: { id: "user_1", isPro: false } });
+  checkItemLimit.mockResolvedValue({ allowed: true, limit: 50, current: 3 });
 });
 
 describe("createItem action", () => {
@@ -112,6 +123,7 @@ describe("createItem action", () => {
   });
 
   it("forwards the upload fields for a file item", async () => {
+    auth.mockResolvedValue({ user: { id: "user_1", isPro: true } });
     const detail = { id: "item_2", title: "Spec.pdf" };
     createItemQuery.mockResolvedValue(detail);
 
@@ -171,6 +183,47 @@ describe("createItem action", () => {
       error: "Something went wrong creating the item.",
     });
     consoleError.mockRestore();
+  });
+
+  it("blocks a free user who is at the item limit", async () => {
+    checkItemLimit.mockResolvedValue({ allowed: false, limit: 50, current: 50 });
+
+    const result = await createItem(validCreate);
+
+    expect(checkItemLimit).toHaveBeenCalledWith("user_1", false);
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toContain("free plan limit");
+    expect(createItemQuery).not.toHaveBeenCalled();
+  });
+
+  it("blocks a file item for a non-Pro user", async () => {
+    const result = await createItem({
+      type: "file",
+      title: "Spec.pdf",
+      description: "",
+      content: "",
+      language: "",
+      url: "",
+      tags: [],
+      fileKey: "uploads/user_1/file/abc.pdf",
+      fileName: "Spec.pdf",
+      fileSize: 4096,
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: "File uploads are a Pro feature. Upgrade to attach files.",
+    });
+    expect(createItemQuery).not.toHaveBeenCalled();
+  });
+
+  it("passes isPro through to the limit check", async () => {
+    auth.mockResolvedValue({ user: { id: "user_1", isPro: true } });
+    createItemQuery.mockResolvedValue({ id: "item_9" });
+
+    await createItem(validCreate);
+
+    expect(checkItemLimit).toHaveBeenCalledWith("user_1", true);
   });
 });
 

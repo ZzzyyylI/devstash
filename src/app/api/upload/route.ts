@@ -78,6 +78,15 @@ export async function POST(request: Request) {
     );
   }
 
+  // Image uploads are free; file uploads are Pro. (`session.user.isPro` is
+  // re-synced from the DB on every `auth()` call — see src/auth.ts.)
+  if (kind === "file" && !session.user.isPro) {
+    return NextResponse.json(
+      { success: false, error: "File uploads are a Pro feature." },
+      { status: 403 },
+    );
+  }
+
   const file = form.get("file");
   if (!(file instanceof File)) {
     return NextResponse.json(

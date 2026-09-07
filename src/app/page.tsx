@@ -35,7 +35,7 @@ export default async function HomePage() {
         <FeaturesSection />
         <AiSection />
         <HowItWorksSection />
-        <PricingSection />
+        <PricingSection signedIn={signedIn} />
         <CtaSection />
       </main>
 

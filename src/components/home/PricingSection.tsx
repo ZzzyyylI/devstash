@@ -2,7 +2,7 @@ import { PricingPlans } from "./PricingPlans";
 import { Reveal } from "./Reveal";
 import { SectionHeading } from "./SectionHeading";
 
-export function PricingSection() {
+export function PricingSection({ signedIn = false }: { signedIn?: boolean }) {
   return (
     <section
       id="pricing"
@@ -15,7 +15,7 @@ export function PricingSection() {
         />
       </Reveal>
       <Reveal>
-        <PricingPlans />
+        <PricingPlans signedIn={signedIn} />
       </Reveal>
     </section>
   );

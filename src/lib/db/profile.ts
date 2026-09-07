@@ -19,6 +19,9 @@ export interface ProfileUser {
   isPro: boolean;
   /** True for email/password accounts — gates the "change password" action. */
   hasPassword: boolean;
+  /** True once the user has a Stripe customer (has started checkout at least
+   *  once) — gates the billing portal. The raw id is never exposed. */
+  hasStripeCustomer: boolean;
   createdAt: Date;
 }
 
@@ -35,13 +38,18 @@ export async function getProfileUser(
       emailVerified: true,
       isPro: true,
       password: true,
+      stripeCustomerId: true,
       createdAt: true,
     },
   });
   if (!user) return null;
 
-  const { password, ...rest } = user;
-  return { ...rest, hasPassword: password !== null };
+  const { password, stripeCustomerId, ...rest } = user;
+  return {
+    ...rest,
+    hasPassword: password !== null,
+    hasStripeCustomer: stripeCustomerId !== null,
+  };
 }
 
 /**

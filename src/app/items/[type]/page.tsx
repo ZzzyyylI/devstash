@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
+import { auth } from "@/auth";
 import { getItemsByType } from "@/lib/db/items";
 import { getItemTypeByName } from "@/lib/db/item-types";
 import { parsePageParam } from "@/lib/pagination";
@@ -27,9 +28,10 @@ export default async function ItemsByTypePage({
   params: Promise<{ type: string }>;
   searchParams: Promise<{ page?: string | string[] }>;
 }) {
-  const [{ type }, { page: pageParam }] = await Promise.all([
+  const [{ type }, { page: pageParam }, session] = await Promise.all([
     params,
     searchParams,
+    auth(),
   ]);
   const itemType = await getItemTypeByName(type);
 
@@ -65,7 +67,12 @@ export default async function ItemsByTypePage({
             {total} {total === 1 ? "item" : "items"} in this type
           </p>
         </div>
-        {creatableType && <NewTypeItemButton type={creatableType} />}
+        {creatableType && (
+          <NewTypeItemButton
+            type={creatableType}
+            isPro={Boolean(session?.user?.isPro)}
+          />
+        )}
       </div>
 
       {total === 0 ? (

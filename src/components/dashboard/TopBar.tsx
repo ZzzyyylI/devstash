@@ -26,6 +26,8 @@ interface TopBarProps {
   searchItems: ItemWithType[];
   /** Pre-fetched collection dataset for the command palette. */
   searchCollections: SearchCollection[];
+  /** Whether the signed-in user is on Pro (gates the `file` item type). */
+  isPro: boolean;
 }
 
 /**
@@ -41,6 +43,7 @@ export function TopBar({
   onToggleSidebar,
   searchItems,
   searchCollections,
+  isPro,
 }: TopBarProps) {
   const [newItemOpen, setNewItemOpen] = useState(false);
   const [newCollectionOpen, setNewCollectionOpen] = useState(false);
@@ -157,7 +160,11 @@ export function TopBar({
         items={searchItems}
         collections={searchCollections}
       />
-      <NewItemDialog open={newItemOpen} onOpenChange={setNewItemOpen} />
+      <NewItemDialog
+        open={newItemOpen}
+        onOpenChange={setNewItemOpen}
+        isPro={isPro}
+      />
       <NewCollectionDialog
         open={newCollectionOpen}
         onOpenChange={setNewCollectionOpen}

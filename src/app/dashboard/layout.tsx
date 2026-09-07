@@ -37,6 +37,7 @@ export default async function DashboardLayout({
         collections={collections}
         user={user}
         searchIndex={searchIndex}
+        isPro={Boolean(session?.user?.isPro)}
       >
         {children}
       </DashboardShell>

@@ -1,18 +1,32 @@
-# Current Feature
-
-_None — ready for the next feature._
+# Current Feature: Stripe Phase 2 — Integration & UI
 
 ## Status
 
-Completed
+In Progress
 
 ## Goals
 
-_None._
+- Ship Stripe-hosted **Checkout** and **Billing Portal** as API routes (`src/app/api/stripe/checkout`, `.../portal`), failing soft (`503`) when Stripe env is unset.
+- Add the public **webhook** (`src/app/api/stripe/webhook/route.ts`, `runtime = "nodejs"`, raw-body signature verify) that is the **only** path granting/revoking entitlement.
+- New `src/lib/stripe/subscription.ts` `syncSubscriptionForCustomer(customerId)` — the sole writer of `isPro` / `stripeSubscriptionId` / `stripePriceId` / `stripeCurrentPeriodEnd`, reconciled from `stripe.subscriptions.list`; idempotent + order-independent.
+- Sync `isPro` into the session: `src/auth.ts` `jwt()` callback re-reads `User.isPro` on every `auth()` call; `session.user.isPro` exposed; `src/types/next-auth.d.ts` augmented. No Pro gating in the edge proxy.
+- Server-side **feature gating** in create paths: 50 items / 3 collections limit (`checkItemLimit` / `checkCollectionLimit` + `limitErrorMessage`) in `src/actions/items.ts` + `src/app/api/collections/route.ts`; `file` uploads Pro-only in `src/app/api/upload/route.ts` (`image` stays free).
+- **Billing UI**: `src/components/settings/BillingSection.tsx` (Upgrade / Manage billing) on `/settings` between Editor preferences and Account; `?checkout=success|cancelled` toast.
+- Cosmetic hints: `NewItemDialog` disables the `file` pill + shows a "Pro" badge for free users; optional signed-in checkout wiring on `PricingPlans`.
+- `src/lib/db/profile.ts` `getProfileUser` exposes `hasStripeCustomer` (derived, no raw id leak); `profile.test.ts` fixtures updated.
+- Best-effort `stripe.subscriptions.cancel` in `POST /api/auth/delete-account` before user delete.
+- `npm run test` / `lint` / `build` clean; integration-verified with Stripe CLI test mode + Neon `development` branch.
 
 ## Notes
 
-_None._
+- Full code + rationale: `docs/stripe-integration-plan.md` (§4.4, §4.6–4.9, §5.3–5.12, §6–§8). Phase 1 modules consumed: `context/features/stripe-phase-1-spec.md`.
+- **Scope decision (LOCKED 2026-09-07): gate on the SESSION user's counts** — `checkItemLimit(session.user.id, Boolean(session.user.isPro))` / `checkCollectionLimit(session.user.id, …)`. Correct for real billing. Note the data layer still writes items/collections under the **demo user** (`getDemoUserId()`), so a signed-in non-demo user's own row count is 0 and the limit is effectively inert until the data layer is session-scoped — accepted, this is the spec's recommended path and motivates that later move.
+- Entitlement comes from the **webhook only** — never trust `success_url`. Webhook must stay public (not in `src/proxy.ts`), `runtime = "nodejs"`, raw `await request.text()` into `stripe.webhooks.constructEvent` (never `request.json()`).
+- Checkout/Portal/Webhook are **API routes** (not Server Actions) — matches the collection-mutation convention + raw-body / redirect needs. Mirror `src/app/api/collections/route.ts` conventions; `getBaseUrl(request)` from `src/lib/base-url.ts` for success/cancel/return URLs.
+- `stripe.subscriptions.list` (v7+ SDK), not `customers.listSubscriptions`. `current_period_end` is seconds → `new Date(sec * 1000)`. Persist a newly-created `stripeCustomerId` **before** returning the Checkout URL (retried upgrade reuses it, no duplicate customers).
+- Requires Stripe Dashboard test-mode setup (product `DevStash Pro`, $8/mo + $72/yr prices, portal, webhook, `stripe listen` locally) — see spec "Stripe Dashboard Setup". Needs `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID_MONTHLY`, `STRIPE_PRICE_ID_YEARLY` in `.env`.
+- No new unit suites for checkout/portal/webhook/`subscription.ts` (API/SDK surface, verified by integration per repo convention); only `profile.test.ts` fixture updates.
+- Carry-forward exclusions from `main`: `.claude/agents/ui-reviewer.md` (untracked) stays out of this feature's commit unless asked.
 
 ## History
 

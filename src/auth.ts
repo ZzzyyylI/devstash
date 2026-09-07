@@ -73,14 +73,25 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
   callbacks: {
-    // Persist the user id onto the token, then expose it on the session so
-    // server code can do `session.user.id` without a database round-trip.
-    jwt({ token, user }) {
+    // Persist the user id onto the token, then re-sync `isPro` from the DB on
+    // every call. The Pro flag is written by the Stripe webhook, which can't
+    // reach an already-issued JWT — so an unconditional indexed `findUnique`
+    // here is what makes a page reload after checkout reflect Pro. One extra
+    // read per `auth()` call; acceptable for this app's traffic.
+    async jwt({ token, user }) {
       if (user) token.id = user.id;
+      if (token.id) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { isPro: true },
+        });
+        token.isPro = dbUser?.isPro ?? false;
+      }
       return token;
     },
     session({ session, token }) {
       if (token.id) session.user.id = token.id as string;
+      session.user.isPro = Boolean(token.isPro);
       return session;
     },
   },

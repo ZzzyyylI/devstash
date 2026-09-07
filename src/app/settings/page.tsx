@@ -3,6 +3,8 @@ import { ArrowLeft } from "lucide-react";
 
 import { requireProfileUser } from "@/lib/db/profile";
 import { getEditorPreferences } from "@/lib/db/editor-preferences";
+import { BillingCheckoutToast } from "@/components/settings/BillingCheckoutToast";
+import { BillingSection } from "@/components/settings/BillingSection";
 import { ChangePasswordForm } from "@/components/settings/ChangePasswordForm";
 import { DeleteAccountDialog } from "@/components/settings/DeleteAccountDialog";
 import { EditorPreferencesForm } from "@/components/settings/EditorPreferencesForm";
@@ -14,9 +16,20 @@ export const metadata = {
   title: "Settings · DevStash",
 };
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ checkout?: string | string[] }>;
+}) {
   const user = await requireProfileUser("/settings");
   const editorPreferences = await getEditorPreferences(user.id);
+
+  const rawCheckout = (await searchParams).checkout;
+  const checkoutParam = Array.isArray(rawCheckout) ? rawCheckout[0] : rawCheckout;
+  const checkoutStatus =
+    checkoutParam === "success" || checkoutParam === "cancelled"
+      ? checkoutParam
+      : null;
 
   return (
     <main className="mx-auto max-w-2xl p-6">
@@ -29,6 +42,8 @@ export default async function SettingsPage() {
       </Link>
 
       <h1 className="text-xl font-semibold">Settings</h1>
+
+      {checkoutStatus && <BillingCheckoutToast status={checkoutStatus} />}
 
       <section className="mt-8 space-y-4">
         <h2 className="text-sm font-medium text-muted-foreground">
@@ -47,6 +62,17 @@ export default async function SettingsPage() {
             </EditorPreferencesProvider>
           </div>
         </div>
+      </section>
+
+      <section className="mt-8 space-y-4">
+        <h2 className="text-sm font-medium text-muted-foreground">
+          Plan &amp; billing
+        </h2>
+
+        <BillingSection
+          isPro={user.isPro}
+          hasCustomer={user.hasStripeCustomer}
+        />
       </section>
 
       <section className="mt-8 space-y-4">

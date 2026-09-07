@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { createCollection, getCollectionOptions } from "@/lib/db/collections";
 import { createCollectionSchema } from "@/lib/validations/collection";
+import { checkCollectionLimit, limitErrorMessage } from "@/lib/stripe/limits";
 import {
   INVALID_JSON,
   invalidJsonResponse,
@@ -52,6 +53,20 @@ export async function POST(request: Request) {
   const parsed = createCollectionSchema.safeParse(body);
   if (!parsed.success) {
     return validationErrorResponse(parsed.error, "Invalid collection details");
+  }
+
+  // Free-plan gating. Scoped to the SESSION user (per context/current-feature.md).
+  // NB: `createCollection` writes under the demo user, so a non-demo session's
+  // own count is 0 — this limit is inert until the data layer is session-scoped.
+  const check = await checkCollectionLimit(
+    session.user.id,
+    Boolean(session.user.isPro),
+  );
+  if (!check.allowed) {
+    return NextResponse.json(
+      { success: false, error: limitErrorMessage("collection", check) },
+      { status: 403 },
+    );
   }
 
   try {

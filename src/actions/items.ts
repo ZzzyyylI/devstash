@@ -9,6 +9,7 @@ import {
   type ItemDetail,
 } from "@/lib/db/items";
 import { createItemSchema, updateItemSchema } from "@/lib/validations/item";
+import { checkItemLimit, limitErrorMessage } from "@/lib/stripe/limits";
 
 type ActionResult<T> =
   | { success: true; data: T }
@@ -36,6 +37,22 @@ export async function createItem(
       success: false,
       error: "Please fix the highlighted fields.",
       fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  // Free-plan gating. Scoped to the SESSION user (per context/current-feature.md)
+  // — correct for real billing. NB: the data-layer write below is still
+  // demo-user-scoped, so a signed-in non-demo user's own item count is 0 and
+  // this limit is effectively inert until the data layer is session-scoped.
+  const isPro = Boolean(session.user.isPro);
+  const limit = await checkItemLimit(session.user.id, isPro);
+  if (!limit.allowed) {
+    return { success: false, error: limitErrorMessage("item", limit) };
+  }
+  if (parsed.data.type === "file" && !isPro) {
+    return {
+      success: false,
+      error: "File uploads are a Pro feature. Upgrade to attach files.",
     };
   }
 
