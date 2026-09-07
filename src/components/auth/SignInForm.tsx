@@ -9,6 +9,7 @@ import { signInWithGitHub } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { GitHubIcon } from "@/components/auth/GitHubIcon";
+import { FormError } from "@/components/auth/FormError";
 import { signInSchema } from "@/lib/validations/auth";
 
 interface SignInFormProps {
@@ -118,11 +119,7 @@ export function SignInForm({ callbackUrl }: SignInFormProps) {
           />
         </div>
 
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
+        <FormError>{error}</FormError>
 
         {unverifiedEmail && (
           <div

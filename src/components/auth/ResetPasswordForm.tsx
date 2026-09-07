@@ -7,10 +7,15 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { resetPasswordSchema } from "@/lib/validations/auth";
+import {
+  collectFieldErrors,
+  type FieldErrors,
+} from "@/lib/validations/field-errors";
+import { postJson } from "@/lib/post-json";
 
-type FieldErrors = Partial<
-  Record<"password" | "confirmPassword" | "form", string>
->;
+type ResetErrors = FieldErrors<"password" | "confirmPassword">;
+
+const RESET_FIELDS = ["password", "confirmPassword"] as const;
 
 interface ResetPasswordFormProps {
   /** The reset token from the email link's `?token=` query param. */
@@ -19,7 +24,7 @@ interface ResetPasswordFormProps {
 
 export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
   const router = useRouter();
-  const [errors, setErrors] = useState<FieldErrors>({});
+  const [errors, setErrors] = useState<ResetErrors>({});
   const [pending, setPending] = useState(false);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -27,49 +32,33 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
     setErrors({});
 
     const form = new FormData(event.currentTarget);
-    const values = {
+    const parsed = resetPasswordSchema.safeParse({
       token,
       password: form.get("password"),
       confirmPassword: form.get("confirmPassword"),
-    };
-
-    const parsed = resetPasswordSchema.safeParse(values);
+    });
     if (!parsed.success) {
-      const fieldErrors: FieldErrors = {};
-      for (const issue of parsed.error.issues) {
-        const key = issue.path[0] as keyof FieldErrors;
-        if (key === "password" || key === "confirmPassword") {
-          fieldErrors[key] ??= issue.message;
-        }
-      }
-      setErrors(fieldErrors);
+      setErrors(collectFieldErrors(parsed.error, RESET_FIELDS));
       return;
     }
 
     setPending(true);
-    let res: Response;
-    try {
-      res = await fetch("/api/auth/reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(parsed.data),
-      });
-    } catch {
-      setPending(false);
-      setErrors({ form: "Network error. Please try again." });
-      return;
-    }
+    const { ok, status, data } = await postJson<{ error?: string }>(
+      "/api/auth/reset-password",
+      parsed.data,
+    );
     setPending(false);
 
-    if (res.ok) {
+    if (ok) {
       router.push("/sign-in?reset=1");
       return;
     }
-
-    const body = (await res.json().catch(() => null)) as {
-      error?: string;
-    } | null;
-    setErrors({ form: body?.error ?? "Could not reset your password." });
+    setErrors({
+      form:
+        status === 0
+          ? "Network error. Please try again."
+          : (data?.error ?? "Could not reset your password."),
+    });
   }
 
   return (

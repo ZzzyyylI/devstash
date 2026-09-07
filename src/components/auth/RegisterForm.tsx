@@ -7,14 +7,21 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { registerSchema } from "@/lib/validations/auth";
+import {
+  collectFieldErrors,
+  type FieldErrors,
+} from "@/lib/validations/field-errors";
+import { postJson } from "@/lib/post-json";
+import { AuthField } from "@/components/auth/AuthField";
+import { FormError } from "@/components/auth/FormError";
 
-type FieldErrors = Partial<
-  Record<"name" | "email" | "password" | "confirmPassword" | "form", string>
+type RegisterErrors = FieldErrors<
+  "name" | "email" | "password" | "confirmPassword"
 >;
 
 export function RegisterForm() {
   const router = useRouter();
-  const [errors, setErrors] = useState<FieldErrors>({});
+  const [errors, setErrors] = useState<RegisterErrors>({});
   const [pending, setPending] = useState(false);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -22,56 +29,42 @@ export function RegisterForm() {
     setErrors({});
 
     const form = new FormData(event.currentTarget);
-    const values = {
+    const parsed = registerSchema.safeParse({
       name: form.get("name"),
       email: form.get("email"),
       password: form.get("password"),
       confirmPassword: form.get("confirmPassword"),
-    };
-
-    const parsed = registerSchema.safeParse(values);
+    });
     if (!parsed.success) {
-      const fieldErrors: FieldErrors = {};
-      for (const issue of parsed.error.issues) {
-        const key = issue.path[0] as keyof FieldErrors;
-        fieldErrors[key] ??= issue.message;
-      }
-      setErrors(fieldErrors);
+      setErrors(collectFieldErrors(parsed.error));
       return;
     }
 
     setPending(true);
-    let res: Response;
-    try {
-      res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(parsed.data),
-      });
-    } catch {
-      setPending(false);
-      setErrors({ form: "Network error. Please try again." });
-      return;
-    }
+    const { ok, status, data } = await postJson<{ error?: string }>(
+      "/api/auth/register",
+      parsed.data,
+    );
     setPending(false);
 
-    if (res.ok) {
+    if (ok) {
       router.push("/sign-in?registered=1");
       return;
     }
-
-    const body = (await res.json().catch(() => null)) as {
-      error?: string;
-    } | null;
-    setErrors({ form: body?.error ?? "Could not create your account." });
+    setErrors({
+      form:
+        status === 0
+          ? "Network error. Please try again."
+          : (data?.error ?? "Could not create your account."),
+    });
   }
 
   return (
     <form onSubmit={onSubmit} className="space-y-3">
-      <Field id="name" label="Name" error={errors.name}>
+      <AuthField id="name" label="Name" error={errors.name}>
         <Input id="name" name="name" autoComplete="name" required />
-      </Field>
-      <Field id="email" label="Email" error={errors.email}>
+      </AuthField>
+      <AuthField id="email" label="Email" error={errors.email}>
         <Input
           id="email"
           name="email"
@@ -80,8 +73,8 @@ export function RegisterForm() {
           required
           placeholder="you@example.com"
         />
-      </Field>
-      <Field id="password" label="Password" error={errors.password}>
+      </AuthField>
+      <AuthField id="password" label="Password" error={errors.password}>
         <Input
           id="password"
           name="password"
@@ -89,8 +82,8 @@ export function RegisterForm() {
           autoComplete="new-password"
           required
         />
-      </Field>
-      <Field
+      </AuthField>
+      <AuthField
         id="confirmPassword"
         label="Confirm password"
         error={errors.confirmPassword}
@@ -102,13 +95,9 @@ export function RegisterForm() {
           autoComplete="new-password"
           required
         />
-      </Field>
+      </AuthField>
 
-      {errors.form && (
-        <p role="alert" className="text-sm text-destructive">
-          {errors.form}
-        </p>
-      )}
+      <FormError>{errors.form}</FormError>
 
       <Button type="submit" className="w-full" disabled={pending}>
         {pending ? "Creating account…" : "Create account"}
@@ -121,27 +110,5 @@ export function RegisterForm() {
         </Link>
       </p>
     </form>
-  );
-}
-
-function Field({
-  id,
-  label,
-  error,
-  children,
-}: {
-  id: string;
-  label: string;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <label htmlFor={id} className="text-sm font-medium">
-        {label}
-      </label>
-      {children}
-      {error && <p className="text-xs text-destructive">{error}</p>}
-    </div>
   );
 }

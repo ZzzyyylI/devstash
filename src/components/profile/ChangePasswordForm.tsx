@@ -5,9 +5,16 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { changePasswordSchema } from "@/lib/validations/auth";
+import {
+  collectFieldErrors,
+  type FieldErrors,
+} from "@/lib/validations/field-errors";
+import { postJson } from "@/lib/post-json";
+import { AuthField } from "@/components/auth/AuthField";
+import { FormError } from "@/components/auth/FormError";
 
-type FieldErrors = Partial<
-  Record<"currentPassword" | "newPassword" | "confirmPassword" | "form", string>
+type ChangePasswordErrors = FieldErrors<
+  "currentPassword" | "newPassword" | "confirmPassword"
 >;
 
 /**
@@ -17,7 +24,7 @@ type FieldErrors = Partial<
  */
 export function ChangePasswordForm({ email }: { email: string }) {
   const [open, setOpen] = useState(false);
-  const [errors, setErrors] = useState<FieldErrors>({});
+  const [errors, setErrors] = useState<ChangePasswordErrors>({});
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -28,49 +35,35 @@ export function ChangePasswordForm({ email }: { email: string }) {
 
     const formEl = event.currentTarget;
     const form = new FormData(formEl);
-    const values = {
+    const parsed = changePasswordSchema.safeParse({
       currentPassword: form.get("currentPassword"),
       newPassword: form.get("newPassword"),
       confirmPassword: form.get("confirmPassword"),
-    };
-
-    const parsed = changePasswordSchema.safeParse(values);
+    });
     if (!parsed.success) {
-      const fieldErrors: FieldErrors = {};
-      for (const issue of parsed.error.issues) {
-        const key = issue.path[0] as keyof FieldErrors;
-        fieldErrors[key] ??= issue.message;
-      }
-      setErrors(fieldErrors);
+      setErrors(collectFieldErrors(parsed.error));
       return;
     }
 
     setPending(true);
-    let res: Response;
-    try {
-      res = await fetch("/api/auth/change-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(parsed.data),
-      });
-    } catch {
-      setPending(false);
-      setErrors({ form: "Network error. Please try again." });
-      return;
-    }
+    const { ok, status, data } = await postJson<{ error?: string }>(
+      "/api/auth/change-password",
+      parsed.data,
+    );
     setPending(false);
 
-    if (res.ok) {
+    if (ok) {
       formEl.reset();
       setDone(true);
       setOpen(false);
       return;
     }
-
-    const body = (await res.json().catch(() => null)) as {
-      error?: string;
-    } | null;
-    setErrors({ form: body?.error ?? "Could not change your password." });
+    setErrors({
+      form:
+        status === 0
+          ? "Network error. Please try again."
+          : (data?.error ?? "Could not change your password."),
+    });
   }
 
   if (!open) {
@@ -108,7 +101,7 @@ export function ChangePasswordForm({ email }: { email: string }) {
         readOnly
         hidden
       />
-      <Field
+      <AuthField
         id="currentPassword"
         label="Current password"
         error={errors.currentPassword}
@@ -120,8 +113,8 @@ export function ChangePasswordForm({ email }: { email: string }) {
           autoComplete="current-password"
           required
         />
-      </Field>
-      <Field id="newPassword" label="New password" error={errors.newPassword}>
+      </AuthField>
+      <AuthField id="newPassword" label="New password" error={errors.newPassword}>
         <Input
           id="newPassword"
           name="newPassword"
@@ -129,8 +122,8 @@ export function ChangePasswordForm({ email }: { email: string }) {
           autoComplete="new-password"
           required
         />
-      </Field>
-      <Field
+      </AuthField>
+      <AuthField
         id="confirmPassword"
         label="Confirm new password"
         error={errors.confirmPassword}
@@ -142,13 +135,9 @@ export function ChangePasswordForm({ email }: { email: string }) {
           autoComplete="new-password"
           required
         />
-      </Field>
+      </AuthField>
 
-      {errors.form && (
-        <p role="alert" className="text-sm text-destructive">
-          {errors.form}
-        </p>
-      )}
+      <FormError>{errors.form}</FormError>
 
       <div className="flex gap-2">
         <Button type="submit" size="sm" disabled={pending}>
@@ -168,27 +157,5 @@ export function ChangePasswordForm({ email }: { email: string }) {
         </Button>
       </div>
     </form>
-  );
-}
-
-function Field({
-  id,
-  label,
-  error,
-  children,
-}: {
-  id: string;
-  label: string;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <label htmlFor={id} className="text-sm font-medium">
-        {label}
-      </label>
-      {children}
-      {error && <p className="text-xs text-destructive">{error}</p>}
-    </div>
   );
 }

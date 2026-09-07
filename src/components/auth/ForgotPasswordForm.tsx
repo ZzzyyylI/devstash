@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FormError } from "@/components/auth/FormError";
 import { forgotPasswordSchema } from "@/lib/validations/auth";
 
 export function ForgotPasswordForm() {
@@ -83,11 +84,7 @@ export function ForgotPasswordForm() {
           />
         </div>
 
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
+        <FormError>{error}</FormError>
 
         <Button type="submit" className="w-full" disabled={pending}>
           {pending ? "Sending…" : "Send reset link"}
