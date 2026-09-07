@@ -11,13 +11,9 @@ import {
   validateUpload,
   type UploadKind,
 } from "@/lib/file-constraints";
+import { uploadFile, type UploadedFile } from "@/lib/upload-client";
 
-/** A completed upload, as stored in the create form + sent to `createItem`. */
-export interface UploadedFile {
-  key: string;
-  name: string;
-  size: number;
-}
+export type { UploadedFile } from "@/lib/upload-client";
 
 interface FileUploadProps {
   kind: UploadKind;
@@ -45,7 +41,7 @@ export function FileUpload({
   disabled = false,
 }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const xhrRef = useRef<XMLHttpRequest | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const [phase, setPhase] = useState<Phase>(
     value ? { status: "done" } : { status: "idle" },
   );
@@ -61,7 +57,7 @@ export function FileUpload({
 
   // Abort an in-flight upload if the component unmounts (dialog closed).
   useEffect(() => {
-    return () => xhrRef.current?.abort();
+    return () => abortRef.current?.abort();
   }, []);
 
   const upload = useCallback(
@@ -83,61 +79,30 @@ export function FileUpload({
         });
       }
 
-      const body = new FormData();
-      body.append("file", file);
-      body.append("kind", kind);
+      const controller = new AbortController();
+      abortRef.current = controller;
+      setPhase({ status: "uploading", progress: 0 });
 
-      const xhr = new XMLHttpRequest();
-      xhrRef.current = xhr;
-      xhr.open("POST", "/api/upload");
-
-      xhr.upload.onprogress = (event) => {
-        if (!event.lengthComputable) return;
-        setPhase({
-          status: "uploading",
-          progress: Math.round((event.loaded / event.total) * 100),
-        });
-      };
-
-      xhr.onload = () => {
-        xhrRef.current = null;
-        let payload: {
-          success?: boolean;
-          error?: string;
-          data?: { key: string; fileName: string; fileSize: number };
-        } = {};
-        try {
-          payload = JSON.parse(xhr.responseText);
-        } catch {
-          /* fall through to the generic error below */
-        }
-
-        if (xhr.status >= 200 && xhr.status < 300 && payload.data) {
+      uploadFile(kind, file, {
+        signal: controller.signal,
+        onProgress: (progress) => setPhase({ status: "uploading", progress }),
+      })
+        .then((uploaded) => {
+          abortRef.current = null;
           setPhase({ status: "done" });
-          onChange({
-            key: payload.data.key,
-            name: payload.data.fileName,
-            size: payload.data.fileSize,
-          });
-        } else {
+          onChange(uploaded);
+        })
+        .catch((error: unknown) => {
+          abortRef.current = null;
+          if (error instanceof DOMException && error.name === "AbortError") {
+            return;
+          }
           setPhase({
             status: "error",
-            message: payload.error ?? "Upload failed. Try again.",
+            message:
+              error instanceof Error ? error.message : "Upload failed. Try again.",
           });
-        }
-      };
-
-      xhr.onerror = () => {
-        xhrRef.current = null;
-        setPhase({ status: "error", message: "Upload failed. Check your connection." });
-      };
-
-      xhr.onabort = () => {
-        xhrRef.current = null;
-      };
-
-      setPhase({ status: "uploading", progress: 0 });
-      xhr.send(body);
+        });
     },
     [kind, onChange],
   );
@@ -148,8 +113,8 @@ export function FileUpload({
   }
 
   function reset() {
-    xhrRef.current?.abort();
-    xhrRef.current = null;
+    abortRef.current?.abort();
+    abortRef.current = null;
     if (inputRef.current) inputRef.current.value = "";
     setPreviewUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
