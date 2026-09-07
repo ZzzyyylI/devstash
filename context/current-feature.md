@@ -2,25 +2,124 @@
 
 <!-- Feature Name -->
 
-_None — ready for the next feature._
+Code Breakup — Extract Shared Functions, Components & Utilities
 
 ## Status
 
 <!-- Not Started|In Progress|Completed -->
 
-Completed
+In Progress
 
 ## Goals
 
 <!-- Goals & requirements -->
 
-_None._
+Pure refactor — no behaviour change, no new deps. Pull duplicated blocks and
+oversized files apart into shared modules. Each item is independent; do them as
+focused commits. After each, `npm run test` + `npm run lint` + `npm run build`
+must stay green, and the touched screens re-verified in the browser.
+
+**Explicitly out of scope:** anything touching the sidebar's shared rendering /
+prop threading (`DashboardShell` renders `<Sidebar>` twice with the same
+`itemTypes` / `collections` / `user`; `Sidebar`'s inline Types `<ul>` map). Left
+for a separate pass.
+
+### 1. Shared item-form field kit
+
+`NewItemDialog.tsx` (322 lines) and `ItemDrawer.tsx`'s `ItemEditForm` (~165 lines)
+each **redefine the same things**:
+
+- `CONTENT_TYPES` = `["snippet","prompt","command","note"]`, `LANGUAGE_TYPES` = `["snippet","command"]`
+- the `showContent` / `showLanguage` / `showCodeEditor` / `showMarkdownEditor` / `showUrl` derivation
+- `Field` component — byte-identical
+- `textareaClass` — byte-identical
+- the Content-field editor picker (`CodeEditor` → `MarkdownEditor` → `<textarea>`), ~22 lines
+- tags normalisation: `str.split(",").map(t => t.trim()).filter(Boolean)`
+
+Extract:
+
+- `src/components/items/item-form/Field.tsx` + `field-styles.ts` (the `textareaClass` string)
+- `src/components/items/item-form/ItemContentField.tsx` — takes `{ typeName, value, onChange, language, error }`, renders the right editor
+- `src/lib/item-type-fields.ts` — `itemTypeFields(typeName)` returning `{ showContent, showLanguage, showUrl, showCodeEditor, showMarkdownEditor }`; folds in the existing `isCodeItemType` / `isMarkdownItemType` / `isFileItemType`. Unit-tested.
+- `src/lib/tags.ts` — `parseTagsInput(str): string[]`. Unit-tested. (Server-side `updateItem`/`createItem` still re-normalise via Zod — this is just the client split.)
+
+Both call sites then import instead of redeclaring. Target: `NewItemDialog` and `ItemEditForm` each ~40 lines shorter.
+
+### 2. Split `ItemDrawer.tsx` (679 lines, 9 top-level declarations)
+
+After #1, move the non-shell pieces to their own files:
+
+- `ItemEditForm` → `src/components/items/ItemEditForm.tsx` (consumes the #1 kit)
+- `FilePreview` → `src/components/items/FilePreview.tsx`
+- `ActionButton`, `DetailSkeleton`, `Section` → `src/components/items/item-drawer/` (or keep `Section`/`ActionButton` inline if small after the rest leaves)
+
+`ItemDrawer.tsx` keeps just the `Sheet` shell + read-view body. Target: under ~250 lines.
+
+### 3. Shared date formatters — `src/lib/format-date.ts`
+
+- `formatShortDate` ("Jan 15") is **byte-identical** in `ItemCard.tsx`, `ItemRow.tsx`, `ImageCard.tsx`.
+- `formatUploadDate` ("Jan 15, 2026") in `FileRow.tsx`; `formatLongDate` ("January 15, 2024", takes a string) in `ItemDrawer.tsx`; an inline `memberSince` formatter in `profile/page.tsx`.
+
+One module: `formatShortDate(Date)`, `formatMediumDate(Date)`, `formatLongDate(Date | string)`. Unit-tested (fixed locale via explicit `"en-US"` + options, already how they're written). Replace all six call sites.
+
+### 4. Shared clipboard hook — `src/lib/use-copy-to-clipboard.ts`
+
+The "copy → show a check for 1.5s, guard a missing `navigator.clipboard`" logic is reimplemented in `CodeEditor.tsx`, `MarkdownEditor.tsx`, and `src/components/items/CopyButton.tsx` (and a 4th, simpler Copy `ActionButton` in `ItemDrawer.tsx`).
+
+- `useCopyToClipboard(): { copied: boolean; copy: (text: string) => void }` — owns the timeout + the `navigator.clipboard?` guard + `.catch` swallow.
+- Each of the three keeps its own chrome (editor-header pill vs. bordered icon button) but calls the hook. `ItemDrawer`'s Copy action can adopt it too.
+
+### 5. Extract the upload client from `FileUpload.tsx` (272 lines)
+
+`FileUpload`'s `upload()` (lines ~67–143) is a self-contained `XMLHttpRequest` + `FormData` + JSON-parse + progress concern.
+
+- New `src/lib/upload-client.ts`: `uploadFile(kind, file, { onProgress, signal }): Promise<UploadedFile>` — rejects with a message string on non-2xx / network error / abort; `client-side validateUpload` guard stays in the component (it drives the error phase before any request).
+- `FileUpload` keeps drag-and-drop + phase state + the preview object-URL + render. ~70 lines lighter; the response-parsing branch becomes reachable from a test.
+
+### 6. Shared client-form helpers for the auth / profile forms
+
+`RegisterForm`, `ResetPasswordForm`, `ChangePasswordForm` (and partly `ForgotPasswordForm`, `SignInForm`) repeat:
+
+- a local `FieldErrors` type + `errors` / `pending` state
+- client-side Zod `safeParse` → `setErrors(fieldErrors)`
+- `try { res = await fetch(url, { method: "POST", headers, body: JSON.stringify(...) }) } catch { setErrors({ form: "Network error. Please try again." }) }`
+- `const body = await res.json().catch(() => null)` → `setErrors({ form: body?.error ?? "<fallback>" })`
+- a `role="alert"` error paragraph
+
+Extract:
+
+- `src/lib/validations/field-errors.ts` — the `FieldErrors` type + `zodFieldErrors(error)` (wraps `error.flatten().fieldErrors`)
+- `src/lib/post-json.ts` — `postJson<T>(url, body): Promise<{ ok: boolean; status: number; data: T | null }>` (does the try/catch + `res.json().catch`)
+- `src/components/auth/FormError.tsx` — the `role="alert"` block
+
+Optionally a `usePostForm({ schema, url })` hook if the shape lines up cleanly across all five; if it doesn't, stop at the three helpers above.
+
+### 7. Shared auth API-route helpers
+
+`register`, `forgot-password`, `reset-password`, `resend-verification`, `change-password` each repeat: `checkRateLimit` + `rateLimitResponse` (already shared), `await request.json()` in a try/catch → 400, `schema.safeParse(...)` → `NextResponse.json({ error, fieldErrors: err.flatten().fieldErrors }, { status: 400 })`.
+
+- New `src/lib/api/request.ts`: `readJsonBody(request): Promise<unknown | typeof INVALID>` and `validationErrorResponse(zodError): NextResponse` (the 400 + `flatten().fieldErrors` shape).
+- Routes call these instead of re-implementing. Keep `rate-limit.ts` as-is.
+
+### 8. Split `src/lib/db/items.ts` (425 lines)
+
+Item-type concerns are a distinct seam: `ItemTypeWithCount`, `TYPE_ORDER`, `compareTypeOrder`, `getItemTypesWithCounts`, `getItemTypeByName`.
+
+- Move them to `src/lib/db/item-types.ts` (~90 lines). `items.ts` keeps item CRUD + list getters + `getItemStats` + the `ItemWithType` / `ItemDetail` types.
+- Update imports (`Sidebar` via layout, `profile.ts`, `/items/[type]/page.tsx`, `dashboard`). `compareTypeOrder` / `TYPE_ORDER` are also imported by `profile.ts` — re-export from `items.ts` for one release if churn is large, or just fix the imports.
+
+### 9. (minor) `src/actions/items.ts` — auth-gate wrapper
+
+`updateItem` / `createItem` / `deleteItem` each open with the same `auth()` → `session?.user?.id` guard and wrap the body in a try/catch returning `{ success: false, error: "<generic>" }`. Extract a `withAuthedAction(fn)` wrapper **or** just a `requireUserId()` + `actionError(msg)` pair. Low value (3 call sites) — do it only if it reads cleaner, skip otherwise.
 
 ## Notes
 
 <!-- Any extra notes -->
 
-_None._
+- Do #1 before #2 (the split consumes the kit). #3–#9 are independent of each other and of #1/#2.
+- No component tests in this project — the new `src/lib/**` utilities (`item-type-fields`, `tags`, `format-date`, `upload-client` parse branch, `field-errors`, `post-json`, `api/request`) get Vitest tests in the same commit; the components are re-verified in the browser (New Item dialog for every type, item drawer edit for a snippet + prompt + link, a file/image upload, the gallery/file list, register + reset-password + change-password happy + error paths).
+- The **sidebar sharing** work (dedupe `DashboardShell`'s two `<Sidebar>` renders / extract `Sidebar`'s Types list) is deliberately excluded here — track it separately.
+- Also still pending from the prior audit (not this feature): inline-SVG XSS hardening, `getBaseUrl` host-header fallback, `fileKey` ownership check, unbounded upload body, collection-stats over-fetch, per-image detail query, `next.config.ts` security headers, `Item` / `VerificationToken` indexes, `proxy.ts` `callbackUrl` fix, `TTL_MS` dedupe, `src/lib/mock-data.ts` deletion.
 
 ## History
 
