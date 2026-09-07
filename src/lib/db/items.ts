@@ -120,6 +120,24 @@ export async function getRecentItems(limit = 10): Promise<ItemWithType[]> {
   return items.map(toItemWithType);
 }
 
+/**
+ * Every one of the demo user's items, most recently updated first — the full
+ * dataset the command palette pre-fetches once and fuzzy-searches client-side.
+ * Same shape as `getRecentItems`, just without the `take` cap.
+ */
+export async function getAllItems(): Promise<ItemWithType[]> {
+  const userId = await getDemoUserId();
+  if (!userId) return [];
+
+  const items = await prisma.item.findMany({
+    where: { userId },
+    orderBy: { updatedAt: "desc" },
+    include: ITEM_INCLUDE,
+  });
+
+  return items.map(toItemWithType);
+}
+
 /** The demo user's items of a given type, most recently updated first, for the /items/[type] list view. */
 export async function getItemsByType(typeId: string): Promise<ItemWithType[]> {
   const userId = await getDemoUserId();

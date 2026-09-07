@@ -20,6 +20,7 @@ const {
   createCollection,
   getCollectionOptions,
   getCollectionById,
+  getSearchCollections,
   updateCollection,
   deleteCollection,
 } = await import("@/lib/db/collections");
@@ -108,6 +109,36 @@ describe("getCollectionOptions", () => {
       select: { id: true, name: true },
     });
     expect(result).toBe(rows);
+  });
+});
+
+describe("getSearchCollections", () => {
+  it("returns an empty list and never queries when there is no demo user", async () => {
+    getDemoUserId.mockResolvedValue(null);
+
+    const result = await getSearchCollections();
+
+    expect(result).toEqual([]);
+    expect(collection.findMany).not.toHaveBeenCalled();
+  });
+
+  it("returns id + name + item count, ordered by name", async () => {
+    collection.findMany.mockResolvedValue([
+      { id: "col_1", name: "AI Workflows", _count: { items: 3 } },
+      { id: "col_2", name: "React Patterns", _count: { items: 0 } },
+    ]);
+
+    const result = await getSearchCollections();
+
+    expect(collection.findMany).toHaveBeenCalledWith({
+      where: { userId: "user_1" },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, _count: { select: { items: true } } },
+    });
+    expect(result).toEqual([
+      { id: "col_1", name: "AI Workflows", itemCount: 3 },
+      { id: "col_2", name: "React Patterns", itemCount: 0 },
+    ]);
   });
 });
 

@@ -10,6 +10,7 @@ import { TopBar } from "@/components/dashboard/TopBar";
 import type { ItemTypeWithCount } from "@/lib/db/item-types";
 import type { CollectionWithStats } from "@/lib/db/collections";
 import type { SidebarUserData } from "@/components/dashboard/SidebarUser";
+import type { SearchIndex } from "@/lib/db/search";
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -19,6 +20,8 @@ interface DashboardShellProps {
   collections: CollectionWithStats[];
   /** The signed-in user, for the bottom account control. */
   user: SidebarUserData;
+  /** The full items + collections dataset for the Cmd+K command palette. */
+  searchIndex: SearchIndex;
 }
 
 /**
@@ -30,6 +33,7 @@ export function DashboardShell({
   itemTypes,
   collections,
   user,
+  searchIndex,
 }: DashboardShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -82,6 +86,8 @@ export function DashboardShell({
         <TopBar
           onOpenSidebar={() => setMobileOpen(true)}
           onToggleSidebar={() => setCollapsed((v) => !v)}
+          searchItems={searchIndex.items}
+          searchCollections={searchIndex.collections}
         />
         <main className="flex-1 p-6">{children}</main>
       </div>
