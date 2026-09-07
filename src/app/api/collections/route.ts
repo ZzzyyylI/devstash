@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
-import { createCollection } from "@/lib/db/collections";
+import { createCollection, getCollectionOptions } from "@/lib/db/collections";
 import { createCollectionSchema } from "@/lib/validations/collection";
 import {
   INVALID_JSON,
@@ -9,6 +9,25 @@ import {
   readJsonBody,
   validationErrorResponse,
 } from "@/lib/api/request";
+
+/**
+ * GET /api/collections
+ *
+ * The signed-in user's collections as `{ id, name }`, for the item form's
+ * collection picker. Scoped to the demo user in the data layer, like POST.
+ */
+export async function GET() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      { success: false, error: "Not authenticated" },
+      { status: 401 },
+    );
+  }
+
+  const data = await getCollectionOptions();
+  return NextResponse.json({ success: true, data });
+}
 
 /**
  * POST /api/collections

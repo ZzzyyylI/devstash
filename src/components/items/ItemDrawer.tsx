@@ -288,11 +288,18 @@ export function ItemDrawer({
                       </Section>
                     )}
 
-                    {detail.collection && (
+                    {detail.collections.length > 0 && (
                       <Section title="Collections" icon={FolderOpen}>
-                        <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                          {detail.collection.name}
-                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {detail.collections.map((collection) => (
+                            <span
+                              key={collection.id}
+                              className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                            >
+                              {collection.name}
+                            </span>
+                          ))}
+                        </div>
                       </Section>
                     )}
 

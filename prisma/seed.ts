@@ -360,15 +360,21 @@ async function main() {
         description: collection.description,
         isFavorite: collection.isFavorite ?? false,
         userId: user.id,
+        // Item <-> Collection is many-to-many; each seed item is created inline
+        // with a single CollectionItem join row back to this collection.
         items: {
           create: collection.items.map((item) => ({
-            title: item.title,
-            description: item.description,
-            content: item.content ?? null,
-            url: item.url ?? null,
-            language: item.language ?? null,
-            userId: user.id,
-            typeId: item.typeId,
+            item: {
+              create: {
+                title: item.title,
+                description: item.description,
+                content: item.content ?? null,
+                url: item.url ?? null,
+                language: item.language ?? null,
+                userId: user.id,
+                typeId: item.typeId,
+              },
+            },
           })),
         },
       },

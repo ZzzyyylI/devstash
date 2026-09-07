@@ -23,6 +23,7 @@ const validInput = {
   url: "",
   language: "",
   tags: ["react"],
+  collectionIds: [],
 };
 
 beforeEach(() => {
@@ -42,6 +43,7 @@ describe("createItem action", () => {
     language: "ts",
     url: "",
     tags: ["react"],
+    collectionIds: [],
   };
 
   it("rejects an unauthenticated caller without touching the database", async () => {
@@ -88,6 +90,7 @@ describe("createItem action", () => {
       ...validCreate,
       title: "  New snippet  ",
       tags: [" react ", "react", ""],
+      collectionIds: [" col_1 ", "col_1", ""],
     });
 
     expect(createItemQuery).toHaveBeenCalledWith({
@@ -98,6 +101,7 @@ describe("createItem action", () => {
       language: "ts",
       url: null,
       tags: ["react"],
+      collectionIds: ["col_1"],
     });
     expect(result).toEqual({ success: true, data: detail });
   });
@@ -203,6 +207,7 @@ describe("updateItem action", () => {
       ...validInput,
       title: "  Updated title  ",
       tags: [" react ", "react", ""],
+      collectionIds: [" col_1 ", "col_2", "col_1"],
     });
 
     expect(updateItemQuery).toHaveBeenCalledWith("item_1", {
@@ -212,6 +217,7 @@ describe("updateItem action", () => {
       url: null,
       language: null,
       tags: ["react"],
+      collectionIds: ["col_1", "col_2"],
     });
     expect(result).toEqual({ success: true, data: detail });
   });

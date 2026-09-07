@@ -2,25 +2,97 @@
 
 <!-- Feature Name -->
 
-_None — ready for the next feature._
+Item ↔ Collections — Many-to-Many + Form Picker
 
 ## Status
 
 <!-- Not Started|In Progress|Completed -->
 
-Completed
+In Progress
 
 ## Goals
 
 <!-- Goals & requirements -->
 
-_None._
+- An item can belong to **zero, one, or many** collections (today it's a single optional `Item.collectionId`).
+- The **New Item** dialog gets a "Collections" input to pick which of the user's collections the item goes into (multi-select).
+- The **Edit** form in the item drawer gets the same input, pre-checked with the item's current collections; saving adds/removes join rows to match.
+- The item drawer's read view "Collections" section lists **all** the item's collections (it currently renders a single `detail.collection`).
+- Dashboard collection cards / sidebar / stat counts keep working against the new relation (item counts, primary type, icon strip).
+- `npm run test`, `npm run lint`, `npm run build` all pass; verified in the browser against live Neon data; dev DB re-seeded afterward.
 
 ## Notes
 
 <!-- Any extra notes -->
 
-_None._
+### Schema (Prisma + migration)
+
+- New explicit join model, mirroring `ItemTag`:
+  ```prisma
+  model CollectionItem {
+    collectionId String
+    itemId       String
+    collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+    item         Item       @relation(fields: [itemId], references: [id], onDelete: Cascade)
+    addedAt      DateTime   @default(now())
+    @@id([collectionId, itemId])
+    @@index([itemId])
+  }
+  ```
+- Drop `Item.collectionId`, its `@relation`, and `@@index([collectionId])`. Replace `Collection.items Item[]` / `Item.collection` with `collectionItems CollectionItem[]` on both sides. **Single source of truth — don't keep the old column.**
+- `prisma migrate dev` — hand-edit the generated migration to **copy existing links before the drop**: `INSERT INTO "CollectionItem" ("collectionId","itemId") SELECT "collectionId","id" FROM "Item" WHERE "collectionId" IS NOT NULL;` then `ALTER TABLE "Item" DROP COLUMN "collectionId";`. Never `db push`.
+- `deleteItem` in `src/lib/db/items.ts` — the manual comment about `SetNull` on the collection link is now `Cascade` via `CollectionItem`; no code change to the delete itself, just the doc comment.
+
+### Data layer (`src/lib/db/`)
+
+- `items.ts`
+  - `ItemDetail.collection: { id; name } | null` → `collections: { id; name }[]`. `getItemDetail` include changes to `collectionItems: { include: { collection: { select: { id, name } } } }`, mapped to `.collections`.
+  - `createItem` / `updateItem` accept `collectionIds: string[]`. `createItem` writes `collectionItems: { create: ids.map(...) }`. `updateItem` replaces wholesale (`deleteMany: {}` + `create`), same pattern as tags. **Guard**: only link collections owned by the same user (filter ids against `prisma.collection.findMany({ where: { id: { in }, userId } })` before writing) — don't trust client ids.
+- `collections.ts`
+  - `fetchCollectionsWithStats` include `items: { select: { type } }` → `collectionItems: { select: { item: { select: { type: {...} } } } }`; `collection.items` → `collection.collectionItems.map(ci => ci.item)`; `itemCount` from that length.
+  - New `getCollectionOptions(): Promise<{ id: string; name: string }[]>` — the user's collections id+name, ordered by name, for the form picker.
+
+### Validation (`src/lib/validations/item.ts`)
+
+- Add to `itemFields`: `collectionIds` = `z.union([z.array(z.string()), z.null()]).optional().transform(v => Array.from(new Set((v ?? []).filter(Boolean)))).pipe(z.array(z.string()).max(100))`. Flows into both `updateItemSchema` and `createItemSchema` automatically.
+
+### API
+
+- New `GET /api/collections/route.ts` handler (the file exists with `POST`): `auth()` → 401, returns `{ success: true, data: getCollectionOptions() }`. The forms fetch this on open (mirrors how the drawer fetches item detail).
+
+### UI
+
+- Reuse the **pill toggle-button** pattern already in `NewItemDialog` (the Type selector) for a multi-select "Collections" field — no new UI primitive. A `<Field label="Collections">` holding a `flex flex-wrap gap-1.5` of `aria-pressed` buttons, one per collection; empty state "No collections yet." when the list is empty.
+- Extract that list into `src/components/items/item-form/CollectionPicker.tsx` (`"use client"`) so `NewItemDialog` and `ItemEditForm` share it. Props: `selected: string[]`, `onChange`, plus it fetches `/api/collections` itself (or takes `options` — decide during impl; self-fetch keeps callers simple).
+- `NewItemDialog`: `emptyForm` gains `collectionIds: [] as string[]`; payload adds `collectionIds`. No submit-gating (optional field).
+- `ItemEditForm`: `useState(detail.collections.map(c => c.id))`; payload adds `collectionIds`.
+- `ItemDrawer` read view: the existing `{detail.collection && ...}` "Collections" `Section` → map `detail.collections` to pills; render the section only when non-empty.
+
+### Seed (`prisma/seed.ts`)
+
+- Items are currently `create`d nested under each collection. Switch to: create the collection, create its items (now needs `userId`/`typeId` only), then create `CollectionItem` join rows — or nest `collectionItems: { create: [...] }` under the item create. Keep the 5 collections / 18 items assertion in `scripts/test-db.ts` working (update its `include`/count access if it reads `item.collection`).
+
+### Tests
+
+- `item.test.ts` — `collectionIds` normalisation (dedupe, null/undefined → `[]`, non-array rejected, max cap).
+- `items.test.ts` — `createItem` writes join rows for valid owned ids; `updateItem` replaces them; foreign/unknown collection ids are filtered out (not written). Prisma + `getDemoUserId` mocked, per the existing pattern.
+- `collections.test.ts` — `getCollectionOptions` shape + user scoping.
+
+### Implementation notes (as built)
+
+- Migration `20260906120000_item_collections_many_to_many` was hand-written (create `CollectionItem` → backfill `INSERT … SELECT` from `Item.collectionId` → drop the column/index/FK) and applied with `prisma migrate deploy` — `prisma migrate dev` refuses to run non-interactively when it detects the column drop. 18 rows backfilled, verified.
+- `CollectionPicker.tsx` self-fetches `GET /api/collections` on mount (chosen over threading options through callers). Renders Loading / "Couldn't load" / "No collections yet." states.
+- `getItemDetail` returns `collections` ordered by name; the drawer read section renders them as muted pills, section hidden when empty.
+- `ownedCollectionIds(userId, ids)` in `items.ts` filters client ids to the user's own collections before `createItem` / `updateItem` write join rows (`updateItem` = wholesale `deleteMany` + `create`, mirroring tags).
+- Seed: items are created nested as `items: { create: [{ item: { create: {…} } }] }` (one `CollectionItem` per seed item). `scripts/test-db.ts` updated for the `{ item }` shape.
+- Tests: +8 (`item.test.ts` collectionIds normalisation ×4, `collections.test.ts` `getCollectionOptions` ×2, `items.test.ts` action payload assertions updated ×2). 172 pass.
+- Browser-verified (demo session, live Neon): New Item picker lists all 5 collections; created a snippet in React Patterns + DevOps → drawer "Collections" shows both (alpha order), dashboard counts 3→4 each; edited to swap DevOps→AI Workflows → "Item updated", drawer + dashboard reflect it (DevOps back to 4); `GET /api/collections` 401 unauthenticated; deleted the test item → back to 18 items / 5 collections, join rows cascaded.
+
+### Out of scope
+
+- Collection **detail pages** (`/collections/[id]`) and any view that lists the items inside a collection — explicitly deferred by the request.
+- Collection edit / delete / favorite-toggle.
+- Drag-and-drop or bulk "add to collection" from the card grid.
 
 ## History
 

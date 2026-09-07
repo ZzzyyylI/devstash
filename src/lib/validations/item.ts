@@ -65,6 +65,23 @@ const tags = z
   )
   .pipe(z.array(z.string()).max(50, "Too many tags (max 50)"));
 
+/**
+ * Collection ids arrive as a string[] (the form's collection picker); trim,
+ * drop blanks, de-dupe. Ownership is enforced in the data layer — an id that
+ * isn't one of the user's collections is silently dropped there, not here.
+ */
+const collectionIds = z
+  .union([z.array(z.string()), z.null()])
+  .optional()
+  .transform((value) =>
+    Array.from(
+      new Set(
+        (value ?? []).map((id) => id.trim()).filter((id) => id.length > 0),
+      ),
+    ),
+  )
+  .pipe(z.array(z.string()).max(100, "Too many collections (max 100)"));
+
 /** Fields shared by the create and update payloads. */
 const itemFields = {
   title: z.string().trim().min(1, "Title is required").max(200),
@@ -73,6 +90,7 @@ const itemFields = {
   url: nullableUrl,
   language: nullableText,
   tags,
+  collectionIds,
 };
 
 export const updateItemSchema = z.object(itemFields);

@@ -73,6 +73,24 @@ function toItemWithType(item: ItemRecord): ItemWithType {
   };
 }
 
+/**
+ * Narrow a list of client-supplied collection ids to the ones that actually
+ * belong to `userId`. Never trust the ids straight from the form — a caller
+ * could otherwise link an item into someone else's collection.
+ */
+async function ownedCollectionIds(
+  userId: string,
+  collectionIds: string[],
+): Promise<string[]> {
+  if (collectionIds.length === 0) return [];
+
+  const owned = await prisma.collection.findMany({
+    where: { id: { in: collectionIds }, userId },
+    select: { id: true },
+  });
+  return owned.map((c) => c.id);
+}
+
 /** The demo user's pinned items, for the dashboard's Pinned section. */
 export async function getPinnedItems(): Promise<ItemWithType[]> {
   const userId = await getDemoUserId();
@@ -131,7 +149,8 @@ export interface ItemDetail {
   isPinned: boolean;
   type: ItemItemType;
   tags: string[];
-  collection: { id: string; name: string } | null;
+  /** Every collection this item belongs to (item ↔ collection is many-to-many). */
+  collections: { id: string; name: string }[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -150,7 +169,10 @@ export async function getItemDetail(id: string): Promise<ItemDetail | null> {
     include: {
       type: { select: { id: true, name: true, icon: true, color: true } },
       tags: { include: { tag: { select: { name: true } } } },
-      collection: { select: { id: true, name: true } },
+      collections: {
+        include: { collection: { select: { id: true, name: true } } },
+        orderBy: { collection: { name: "asc" } },
+      },
     },
   });
   if (!item) return null;
@@ -170,7 +192,7 @@ export async function getItemDetail(id: string): Promise<ItemDetail | null> {
     isPinned: item.isPinned,
     type: item.type,
     tags: item.tags.map(({ tag }) => tag.name),
-    collection: item.collection,
+    collections: item.collections.map(({ collection }) => collection),
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
@@ -181,9 +203,10 @@ export async function getItemDetail(id: string): Promise<ItemDetail | null> {
  * so the drawer can refresh without a second request.
  *
  * Scoped to the demo user like the rest of this file — returns `null` when the
- * id isn't one of their items (the caller treats that as "not found"). Tags are
- * replaced wholesale: every existing join row is dropped and the new names are
- * connect-or-created against the user's tag set.
+ * id isn't one of their items (the caller treats that as "not found"). Tags and
+ * collection links are both replaced wholesale: every existing join row is
+ * dropped and rebuilt from the payload. Collection ids are filtered to the
+ * user's own collections first (see {@link ownedCollectionIds}).
  */
 export async function updateItem(
   id: string,
@@ -197,6 +220,8 @@ export async function updateItem(
     select: { id: true },
   });
   if (!owned) return null;
+
+  const collectionIds = await ownedCollectionIds(userId, data.collectionIds);
 
   await prisma.item.update({
     where: { id },
@@ -215,6 +240,12 @@ export async function updateItem(
               create: { name, userId },
             },
           },
+        })),
+      },
+      collections: {
+        deleteMany: {},
+        create: collectionIds.map((collectionId) => ({
+          collection: { connect: { id: collectionId } },
         })),
       },
     },
@@ -253,6 +284,7 @@ export async function createItem(
   if (!type) return null;
 
   const isFile = isFileItemType(data.type);
+  const collectionIds = await ownedCollectionIds(userId, data.collectionIds);
 
   const created = await prisma.item.create({
     data: {
@@ -277,6 +309,11 @@ export async function createItem(
           },
         })),
       },
+      collections: {
+        create: collectionIds.map((collectionId) => ({
+          collection: { connect: { id: collectionId } },
+        })),
+      },
     },
     select: { id: true },
   });
@@ -287,9 +324,9 @@ export async function createItem(
 /**
  * Delete one of the demo user's items. Scoped to the demo user like the rest of
  * this file — returns `false` when the id isn't one of their items (the caller
- * treats that as "not found"). The `ItemTag` join rows cascade-delete with the
- * item (FK `onDelete: Cascade`); the item's collection link is `SetNull`, so the
- * collection itself is untouched.
+ * treats that as "not found"). The `ItemTag` and `CollectionItem` join rows
+ * both cascade-delete with the item (FK `onDelete: Cascade`); the collections
+ * themselves are untouched.
  *
  * A `file` / `image` item's backing R2 object is removed too, best-effort — a
  * storage failure is logged but doesn't fail the delete.
