@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Pin, Star } from "lucide-react";
 
 import type { ItemWithType } from "@/lib/db/items";
@@ -15,13 +16,16 @@ function formatShortDate(date: Date): string {
 export function ImageCard({ item }: { item: ItemWithType }) {
   return (
     <div className="group flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card">
-      <div className="aspect-video overflow-hidden bg-muted">
-        {/* eslint-disable-next-line @next/next/no-img-element -- same-origin proxy stream, not a static asset */}
-        <img
+      <div className="relative aspect-video overflow-hidden bg-muted">
+        <Image
           src={`/api/files/${item.id}`}
           alt={item.title}
-          loading="lazy"
-          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          fill
+          // The proxy is auth-gated and same-origin, so Next's optimizer (which
+          // fetches server-side, without the user's cookies) can't handle it.
+          unoptimized
+          sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+          className="object-cover transition-transform duration-300 group-hover:scale-105"
         />
       </div>
       <div className="flex items-center gap-2 p-3">
