@@ -4,12 +4,14 @@ import { ArrowLeft } from "lucide-react";
 
 import { getItemsByType } from "@/lib/db/items";
 import { getItemTypeByName } from "@/lib/db/item-types";
+import { parsePageParam } from "@/lib/pagination";
 import {
   CREATE_ITEM_TYPES,
   type CreateItemType,
 } from "@/lib/validations/item";
 import { ItemBrowser } from "@/components/items/ItemBrowser";
 import { NewTypeItemButton } from "@/components/items/NewTypeItemButton";
+import { Pagination } from "@/components/ui/pagination";
 
 // Reads live data from Neon — don't statically cache it at build time.
 export const dynamic = "force-dynamic";
@@ -20,17 +22,25 @@ export const dynamic = "force-dynamic";
  */
 export default async function ItemsByTypePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ type: string }>;
+  searchParams: Promise<{ page?: string | string[] }>;
 }) {
-  const { type } = await params;
+  const [{ type }, { page: pageParam }] = await Promise.all([
+    params,
+    searchParams,
+  ]);
   const itemType = await getItemTypeByName(type);
 
   if (!itemType) {
     notFound();
   }
 
-  const items = await getItemsByType(itemType.id);
+  const { items, page, pageCount, total } = await getItemsByType(
+    itemType.id,
+    parsePageParam(pageParam),
+  );
 
   const typeKey = itemType.name.toLowerCase();
   const creatableType = (CREATE_ITEM_TYPES as readonly string[]).includes(typeKey)
@@ -52,19 +62,24 @@ export default async function ItemsByTypePage({
         <div>
           <h1 className="text-2xl font-semibold capitalize">{itemType.name}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {items.length} {items.length === 1 ? "item" : "items"} in this type
+            {total} {total === 1 ? "item" : "items"} in this type
           </p>
         </div>
         {creatableType && <NewTypeItemButton type={creatableType} />}
       </div>
 
-      {items.length === 0 ? (
+      {total === 0 ? (
         <p className="mt-10 text-sm text-muted-foreground">
           No items of this type yet.
         </p>
       ) : (
         <div className="mt-6">
           <ItemBrowser items={items} layout={layout} />
+          <Pagination
+            page={page}
+            pageCount={pageCount}
+            basePath={`/items/${type}`}
+          />
         </div>
       )}
     </div>

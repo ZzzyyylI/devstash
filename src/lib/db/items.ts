@@ -1,6 +1,14 @@
+import { Prisma } from "@/generated/prisma/client";
+
 import { prisma } from "@/lib/prisma";
 import { getDemoUserId } from "@/lib/db/user";
 import { deleteObject, toObjectKey } from "@/lib/r2";
+import {
+  ITEMS_PER_PAGE,
+  DASHBOARD_RECENT_ITEMS_LIMIT,
+  paginate,
+  type Paginated,
+} from "@/lib/pagination";
 import {
   isFileItemType,
   type CreateItemInput,
@@ -106,7 +114,9 @@ export async function getPinnedItems(): Promise<ItemWithType[]> {
 }
 
 /** The demo user's most recently updated items, for the dashboard's Recent section. */
-export async function getRecentItems(limit = 10): Promise<ItemWithType[]> {
+export async function getRecentItems(
+  limit = DASHBOARD_RECENT_ITEMS_LIMIT,
+): Promise<ItemWithType[]> {
   const userId = await getDemoUserId();
   if (!userId) return [];
 
@@ -118,6 +128,38 @@ export async function getRecentItems(limit = 10): Promise<ItemWithType[]> {
   });
 
   return items.map(toItemWithType);
+}
+
+/**
+ * One page of the demo user's items matching `where`, most recently updated
+ * first — the shared body of `getItemsByType` and `getItemsByCollection`. Runs
+ * the `count` and the page `findMany` together; only `ITEMS_PER_PAGE` rows are
+ * fetched, and an out-of-range `requestedPage` is clamped to the last page.
+ */
+async function getItemsPage(
+  where: Prisma.ItemWhereInput,
+  requestedPage: number,
+): Promise<Paginated<ItemWithType>> {
+  const userId = await getDemoUserId();
+  if (!userId) return { items: [], page: 1, pageCount: 1, total: 0 };
+
+  const scoped = { ...where, userId };
+  const total = await prisma.item.count({ where: scoped });
+  const { page, pageCount, skip, take } = paginate(
+    total,
+    requestedPage,
+    ITEMS_PER_PAGE,
+  );
+
+  const rows = await prisma.item.findMany({
+    where: scoped,
+    orderBy: { updatedAt: "desc" },
+    skip,
+    take,
+    include: ITEM_INCLUDE,
+  });
+
+  return { items: rows.map(toItemWithType), page, pageCount, total };
 }
 
 /**
@@ -138,39 +180,28 @@ export async function getAllItems(): Promise<ItemWithType[]> {
   return items.map(toItemWithType);
 }
 
-/** The demo user's items of a given type, most recently updated first, for the /items/[type] list view. */
-export async function getItemsByType(typeId: string): Promise<ItemWithType[]> {
-  const userId = await getDemoUserId();
-  if (!userId) return [];
-
-  const items = await prisma.item.findMany({
-    where: { userId, typeId },
-    orderBy: { updatedAt: "desc" },
-    include: ITEM_INCLUDE,
-  });
-
-  return items.map(toItemWithType);
+/**
+ * One page of the demo user's items of a given type, most recently updated
+ * first, for the /items/[type] list view.
+ */
+export async function getItemsByType(
+  typeId: string,
+  page = 1,
+): Promise<Paginated<ItemWithType>> {
+  return getItemsPage({ typeId }, page);
 }
 
 /**
- * The demo user's items in a given collection, most recently updated first, for
- * the /collections/[id] detail view. Reuses `ITEM_INCLUDE` + `toItemWithType`
- * like `getItemsByType` — only the `where` differs (a `CollectionItem` join
+ * One page of the demo user's items in a given collection, most recently
+ * updated first, for the /collections/[id] detail view. Same `getItemsPage`
+ * body as `getItemsByType` — only the `where` differs (a `CollectionItem` join
  * filter instead of `typeId`).
  */
 export async function getItemsByCollection(
   collectionId: string,
-): Promise<ItemWithType[]> {
-  const userId = await getDemoUserId();
-  if (!userId) return [];
-
-  const items = await prisma.item.findMany({
-    where: { userId, collections: { some: { collectionId } } },
-    orderBy: { updatedAt: "desc" },
-    include: ITEM_INCLUDE,
-  });
-
-  return items.map(toItemWithType);
+  page = 1,
+): Promise<Paginated<ItemWithType>> {
+  return getItemsPage({ collections: { some: { collectionId } } }, page);
 }
 
 export interface ItemDetail {

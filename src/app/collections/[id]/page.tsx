@@ -4,8 +4,10 @@ import { ArrowLeft, Star } from "lucide-react";
 
 import { getCollectionById } from "@/lib/db/collections";
 import { getItemsByCollection } from "@/lib/db/items";
+import { parsePageParam } from "@/lib/pagination";
 import { ItemBrowser } from "@/components/items/ItemBrowser";
 import { CollectionDetailActions } from "@/components/collections/CollectionDetailActions";
+import { Pagination } from "@/components/ui/pagination";
 
 // Reads live data from Neon — don't statically cache it at build time.
 export const dynamic = "force-dynamic";
@@ -17,17 +19,25 @@ export const dynamic = "force-dynamic";
  */
 export default async function CollectionDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ page?: string | string[] }>;
 }) {
-  const { id } = await params;
+  const [{ id }, { page: pageParam }] = await Promise.all([
+    params,
+    searchParams,
+  ]);
   const collection = await getCollectionById(id);
 
   if (!collection) {
     notFound();
   }
 
-  const items = await getItemsByCollection(collection.id);
+  const { items, page, pageCount, total } = await getItemsByCollection(
+    collection.id,
+    parsePageParam(pageParam),
+  );
 
   return (
     <div className="mx-auto max-w-6xl p-6">
@@ -54,18 +64,22 @@ export default async function CollectionDetailPage({
           </p>
         )}
         <p className="mt-1 text-sm text-muted-foreground">
-          {items.length} {items.length === 1 ? "item" : "items"} in this
-          collection
+          {total} {total === 1 ? "item" : "items"} in this collection
         </p>
       </div>
 
-      {items.length === 0 ? (
+      {total === 0 ? (
         <p className="mt-10 text-sm text-muted-foreground">
           No items in this collection yet.
         </p>
       ) : (
         <div className="mt-6">
           <ItemBrowser items={items} layout="grid" />
+          <Pagination
+            page={page}
+            pageCount={pageCount}
+            basePath={`/collections/${id}`}
+          />
         </div>
       )}
     </div>

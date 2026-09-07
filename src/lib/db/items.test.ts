@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // too — items.ts imports it for the file-delete path, unused here.
 const item = {
   findMany: vi.fn(),
+  count: vi.fn(),
 };
 vi.mock("@/lib/prisma", () => ({
   prisma: { item },
@@ -18,10 +19,14 @@ vi.mock("@/lib/r2", () => ({
   toObjectKey: vi.fn((v: string) => v),
 }));
 
-const { getItemsByCollection, getAllItems } = await import("@/lib/db/items");
+const { getItemsByType, getItemsByCollection, getAllItems } = await import(
+  "@/lib/db/items"
+);
 
 beforeEach(() => {
   item.findMany.mockReset();
+  item.count.mockReset();
+  item.count.mockResolvedValue(0);
   getDemoUserId.mockReset();
   getDemoUserId.mockResolvedValue("user_1");
 });
@@ -44,58 +49,105 @@ function itemRecord() {
   };
 }
 
+const INCLUDE = {
+  type: { select: { id: true, name: true, icon: true, color: true } },
+  tags: { include: { tag: { select: { name: true } } } },
+};
+
 describe("getItemsByCollection", () => {
-  it("returns an empty list and never queries when there is no demo user", async () => {
+  it("returns an empty page and never queries when there is no demo user", async () => {
     getDemoUserId.mockResolvedValue(null);
 
     const result = await getItemsByCollection("col_1");
 
-    expect(result).toEqual([]);
+    expect(result).toEqual({ items: [], page: 1, pageCount: 1, total: 0 });
+    expect(item.count).not.toHaveBeenCalled();
     expect(item.findMany).not.toHaveBeenCalled();
   });
 
   it("filters by the CollectionItem join, scoped to the demo user, newest first", async () => {
+    item.count.mockResolvedValue(0);
     item.findMany.mockResolvedValue([]);
 
     await getItemsByCollection("col_1");
 
+    const scoped = {
+      userId: "user_1",
+      collections: { some: { collectionId: "col_1" } },
+    };
+    expect(item.count).toHaveBeenCalledWith({ where: scoped });
     expect(item.findMany).toHaveBeenCalledWith({
-      where: { userId: "user_1", collections: { some: { collectionId: "col_1" } } },
+      where: scoped,
       orderBy: { updatedAt: "desc" },
-      include: {
-        type: { select: { id: true, name: true, icon: true, color: true } },
-        tags: { include: { tag: { select: { name: true } } } },
-      },
+      skip: 0,
+      take: 21,
+      include: INCLUDE,
     });
   });
 
-  it("maps rows to the ItemWithType card shape (tags flattened)", async () => {
+  it("maps rows to the ItemWithType card shape (tags flattened) inside a page envelope", async () => {
+    item.count.mockResolvedValue(1);
     item.findMany.mockResolvedValue([itemRecord()]);
 
     const result = await getItemsByCollection("col_1");
 
-    expect(result).toEqual([
-      {
-        id: "item_1",
-        title: "useDebounce",
-        description: null,
-        content: "export function useDebounce() {}",
-        url: null,
-        isFavorite: false,
-        isPinned: false,
-        type: {
-          id: "type_snippet",
-          name: "snippet",
-          icon: null,
-          color: "#38bdf8",
+    expect(result).toEqual({
+      page: 1,
+      pageCount: 1,
+      total: 1,
+      items: [
+        {
+          id: "item_1",
+          title: "useDebounce",
+          description: null,
+          content: "export function useDebounce() {}",
+          url: null,
+          isFavorite: false,
+          isPinned: false,
+          type: {
+            id: "type_snippet",
+            name: "snippet",
+            icon: null,
+            color: "#38bdf8",
+          },
+          tags: ["react", "hooks"],
+          fileName: null,
+          fileSize: null,
+          createdAt: new Date("2026-09-01T00:00:00.000Z"),
+          updatedAt: new Date("2026-09-02T00:00:00.000Z"),
         },
-        tags: ["react", "hooks"],
-        fileName: null,
-        fileSize: null,
-        createdAt: new Date("2026-09-01T00:00:00.000Z"),
-        updatedAt: new Date("2026-09-02T00:00:00.000Z"),
-      },
-    ]);
+      ],
+    });
+  });
+});
+
+describe("getItemsByType pagination", () => {
+  it("skips whole pages and reports the page count", async () => {
+    item.count.mockResolvedValue(50); // 3 pages at 21/page
+    item.findMany.mockResolvedValue([]);
+
+    const result = await getItemsByType("type_snippet", 2);
+
+    expect(item.findMany).toHaveBeenCalledWith({
+      where: { userId: "user_1", typeId: "type_snippet" },
+      orderBy: { updatedAt: "desc" },
+      skip: 21,
+      take: 21,
+      include: INCLUDE,
+    });
+    expect(result).toMatchObject({ page: 2, pageCount: 3, total: 50 });
+  });
+
+  it("clamps a request past the last page", async () => {
+    item.count.mockResolvedValue(50);
+    item.findMany.mockResolvedValue([]);
+
+    const result = await getItemsByType("type_snippet", 99);
+
+    expect(result).toMatchObject({ page: 3, pageCount: 3 });
+    expect(item.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 42, take: 21 }),
+    );
   });
 });
 
@@ -117,10 +169,7 @@ describe("getAllItems", () => {
     expect(item.findMany).toHaveBeenCalledWith({
       where: { userId: "user_1" },
       orderBy: { updatedAt: "desc" },
-      include: {
-        type: { select: { id: true, name: true, icon: true, color: true } },
-        tags: { include: { tag: { select: { name: true } } } },
-      },
+      include: INCLUDE,
     });
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({ id: "item_1", tags: ["react", "hooks"] });
