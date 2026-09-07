@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { compareTypeOrder } from "@/lib/db/items";
+import { compareTypeOrder } from "@/lib/db/item-types";
 
 /**
  * Data for the `/profile` page. Unlike the rest of `src/lib/db/*` (which is

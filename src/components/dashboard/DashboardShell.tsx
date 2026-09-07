@@ -7,7 +7,7 @@ import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { TopBar } from "@/components/dashboard/TopBar";
-import type { ItemTypeWithCount } from "@/lib/db/items";
+import type { ItemTypeWithCount } from "@/lib/db/item-types";
 import type { CollectionWithStats } from "@/lib/db/collections";
 import type { SidebarUserData } from "@/components/dashboard/SidebarUser";
 

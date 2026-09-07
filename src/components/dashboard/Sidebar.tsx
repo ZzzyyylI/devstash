@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { ChevronDown, Folder, Layers, Star } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import type { ItemTypeWithCount } from "@/lib/db/items";
+import type { ItemTypeWithCount } from "@/lib/db/item-types";
 import type { CollectionWithStats } from "@/lib/db/collections";
 import { FALLBACK_ICON, palette, TYPE_ICON } from "@/lib/type-presentation";
 import { Badge } from "@/components/ui/badge";

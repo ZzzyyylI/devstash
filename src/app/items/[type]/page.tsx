@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
-import { getItemsByType, getItemTypeByName } from "@/lib/db/items";
+import { getItemsByType } from "@/lib/db/items";
+import { getItemTypeByName } from "@/lib/db/item-types";
 import {
   CREATE_ITEM_TYPES,
   type CreateItemType,
