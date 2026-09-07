@@ -134,6 +134,27 @@ export async function getItemsByType(typeId: string): Promise<ItemWithType[]> {
   return items.map(toItemWithType);
 }
 
+/**
+ * The demo user's items in a given collection, most recently updated first, for
+ * the /collections/[id] detail view. Reuses `ITEM_INCLUDE` + `toItemWithType`
+ * like `getItemsByType` — only the `where` differs (a `CollectionItem` join
+ * filter instead of `typeId`).
+ */
+export async function getItemsByCollection(
+  collectionId: string,
+): Promise<ItemWithType[]> {
+  const userId = await getDemoUserId();
+  if (!userId) return [];
+
+  const items = await prisma.item.findMany({
+    where: { userId, collections: { some: { collectionId } } },
+    orderBy: { updatedAt: "desc" },
+    include: ITEM_INCLUDE,
+  });
+
+  return items.map(toItemWithType);
+}
+
 export interface ItemDetail {
   id: string;
   title: string;

@@ -1,19 +1,21 @@
+import Link from "next/link";
 import { Star } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { CollectionWithStats } from "@/lib/db/collections";
 import { FALLBACK_ICON, palette, TYPE_ICON } from "@/lib/type-presentation";
 
-/** A single collection tile with a colour-coded accent border. Display only. */
+/** A single collection tile with a colour-coded accent border, linking to its detail page. */
 export function CollectionCard({
   collection,
 }: {
   collection: CollectionWithStats;
 }) {
   return (
-    <div
+    <Link
+      href={`/collections/${collection.id}`}
       className={cn(
-        "flex flex-col rounded-xl border border-border border-l-2 bg-card p-4",
+        "flex flex-col rounded-xl border border-border border-l-2 bg-card p-4 transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         palette(collection.primaryType?.color).border,
       )}
     >
@@ -44,6 +46,6 @@ export function CollectionCard({
           })}
         </div>
       )}
-    </div>
+    </Link>
   );
 }

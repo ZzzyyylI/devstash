@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { getRecentCollections } from "@/lib/db/collections";
 import { CollectionCard } from "@/components/dashboard/CollectionCard";
 
@@ -9,7 +11,12 @@ export async function CollectionsSection() {
     <section>
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Collections</h2>
-        <span className="text-sm text-muted-foreground">View all</span>
+        <Link
+          href="/collections"
+          className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          View all
+        </Link>
       </div>
       <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {collections.map((collection) => (
