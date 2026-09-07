@@ -115,6 +115,33 @@ export async function getCollectionOptions(): Promise<CollectionOption[]> {
   });
 }
 
+export interface SearchCollection {
+  id: string;
+  name: string;
+  itemCount: number;
+}
+
+/**
+ * All of the demo user's collections as `{ id, name, itemCount }`, ordered by
+ * name — the collection half of the command palette's client-side search index.
+ */
+export async function getSearchCollections(): Promise<SearchCollection[]> {
+  const userId = await getDemoUserId();
+  if (!userId) return [];
+
+  const rows = await prisma.collection.findMany({
+    where: { userId },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, _count: { select: { items: true } } },
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    itemCount: row._count.items,
+  }));
+}
+
 export interface CollectionStats {
   total: number;
   favorites: number;

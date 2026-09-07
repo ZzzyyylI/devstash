@@ -18,7 +18,7 @@ vi.mock("@/lib/r2", () => ({
   toObjectKey: vi.fn((v: string) => v),
 }));
 
-const { getItemsByCollection } = await import("@/lib/db/items");
+const { getItemsByCollection, getAllItems } = await import("@/lib/db/items");
 
 beforeEach(() => {
   item.findMany.mockReset();
@@ -96,5 +96,33 @@ describe("getItemsByCollection", () => {
         updatedAt: new Date("2026-09-02T00:00:00.000Z"),
       },
     ]);
+  });
+});
+
+describe("getAllItems", () => {
+  it("returns an empty list and never queries when there is no demo user", async () => {
+    getDemoUserId.mockResolvedValue(null);
+
+    const result = await getAllItems();
+
+    expect(result).toEqual([]);
+    expect(item.findMany).not.toHaveBeenCalled();
+  });
+
+  it("fetches every item for the demo user, newest first, with type + tags", async () => {
+    item.findMany.mockResolvedValue([itemRecord()]);
+
+    const result = await getAllItems();
+
+    expect(item.findMany).toHaveBeenCalledWith({
+      where: { userId: "user_1" },
+      orderBy: { updatedAt: "desc" },
+      include: {
+        type: { select: { id: true, name: true, icon: true, color: true } },
+        tags: { include: { tag: { select: { name: true } } } },
+      },
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ id: "item_1", tags: ["react", "hooks"] });
   });
 });
