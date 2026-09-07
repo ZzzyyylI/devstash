@@ -2,7 +2,7 @@
 
 <!-- Feature Name -->
 
-Code Breakup — Extract Shared Functions, Components & Utilities
+_None — ready for the next feature._
 
 ## Status
 
@@ -14,127 +14,13 @@ Completed
 
 <!-- Goals & requirements -->
 
-Pure refactor — no behaviour change, no new deps. Pull duplicated blocks and
-oversized files apart into shared modules. Each item is independent; do them as
-focused commits. After each, `npm run test` + `npm run lint` + `npm run build`
-must stay green, and the touched screens re-verified in the browser.
-
-**Explicitly out of scope:** anything touching the sidebar's shared rendering /
-prop threading (`DashboardShell` renders `<Sidebar>` twice with the same
-`itemTypes` / `collections` / `user`; `Sidebar`'s inline Types `<ul>` map). Left
-for a separate pass.
-
-### 1. Shared item-form field kit
-
-`NewItemDialog.tsx` (322 lines) and `ItemDrawer.tsx`'s `ItemEditForm` (~165 lines)
-each **redefine the same things**:
-
-- `CONTENT_TYPES` = `["snippet","prompt","command","note"]`, `LANGUAGE_TYPES` = `["snippet","command"]`
-- the `showContent` / `showLanguage` / `showCodeEditor` / `showMarkdownEditor` / `showUrl` derivation
-- `Field` component — byte-identical
-- `textareaClass` — byte-identical
-- the Content-field editor picker (`CodeEditor` → `MarkdownEditor` → `<textarea>`), ~22 lines
-- tags normalisation: `str.split(",").map(t => t.trim()).filter(Boolean)`
-
-Extract:
-
-- `src/components/items/item-form/Field.tsx` + `field-styles.ts` (the `textareaClass` string)
-- `src/components/items/item-form/ItemContentField.tsx` — takes `{ typeName, value, onChange, language, error }`, renders the right editor
-- `src/lib/item-type-fields.ts` — `itemTypeFields(typeName)` returning `{ showContent, showLanguage, showUrl, showCodeEditor, showMarkdownEditor }`; folds in the existing `isCodeItemType` / `isMarkdownItemType` / `isFileItemType`. Unit-tested.
-- `src/lib/tags.ts` — `parseTagsInput(str): string[]`. Unit-tested. (Server-side `updateItem`/`createItem` still re-normalise via Zod — this is just the client split.)
-
-Both call sites then import instead of redeclaring. Target: `NewItemDialog` and `ItemEditForm` each ~40 lines shorter.
-
-### 2. Split `ItemDrawer.tsx` (679 lines, 9 top-level declarations)
-
-After #1, move the non-shell pieces to their own files:
-
-- `ItemEditForm` → `src/components/items/ItemEditForm.tsx` (consumes the #1 kit)
-- `FilePreview` → `src/components/items/FilePreview.tsx`
-- `ActionButton`, `DetailSkeleton`, `Section` → `src/components/items/item-drawer/` (or keep `Section`/`ActionButton` inline if small after the rest leaves)
-
-`ItemDrawer.tsx` keeps just the `Sheet` shell + read-view body. Target: under ~250 lines.
-
-### 3. Shared date formatters — `src/lib/format-date.ts`
-
-- `formatShortDate` ("Jan 15") is **byte-identical** in `ItemCard.tsx`, `ItemRow.tsx`, `ImageCard.tsx`.
-- `formatUploadDate` ("Jan 15, 2026") in `FileRow.tsx`; `formatLongDate` ("January 15, 2024", takes a string) in `ItemDrawer.tsx`; an inline `memberSince` formatter in `profile/page.tsx`.
-
-One module: `formatShortDate(Date)`, `formatMediumDate(Date)`, `formatLongDate(Date | string)`. Unit-tested (fixed locale via explicit `"en-US"` + options, already how they're written). Replace all six call sites.
-
-### 4. Shared clipboard hook — `src/lib/use-copy-to-clipboard.ts`
-
-The "copy → show a check for 1.5s, guard a missing `navigator.clipboard`" logic is reimplemented in `CodeEditor.tsx`, `MarkdownEditor.tsx`, and `src/components/items/CopyButton.tsx` (and a 4th, simpler Copy `ActionButton` in `ItemDrawer.tsx`).
-
-- `useCopyToClipboard(): { copied: boolean; copy: (text: string) => void }` — owns the timeout + the `navigator.clipboard?` guard + `.catch` swallow.
-- Each of the three keeps its own chrome (editor-header pill vs. bordered icon button) but calls the hook. `ItemDrawer`'s Copy action can adopt it too.
-
-### 5. Extract the upload client from `FileUpload.tsx` (272 lines)
-
-`FileUpload`'s `upload()` (lines ~67–143) is a self-contained `XMLHttpRequest` + `FormData` + JSON-parse + progress concern.
-
-- New `src/lib/upload-client.ts`: `uploadFile(kind, file, { onProgress, signal }): Promise<UploadedFile>` — rejects with a message string on non-2xx / network error / abort; `client-side validateUpload` guard stays in the component (it drives the error phase before any request).
-- `FileUpload` keeps drag-and-drop + phase state + the preview object-URL + render. ~70 lines lighter; the response-parsing branch becomes reachable from a test.
-
-### 6. Shared client-form helpers for the auth / profile forms
-
-`RegisterForm`, `ResetPasswordForm`, `ChangePasswordForm` (and partly `ForgotPasswordForm`, `SignInForm`) repeat:
-
-- a local `FieldErrors` type + `errors` / `pending` state
-- client-side Zod `safeParse` → `setErrors(fieldErrors)`
-- `try { res = await fetch(url, { method: "POST", headers, body: JSON.stringify(...) }) } catch { setErrors({ form: "Network error. Please try again." }) }`
-- `const body = await res.json().catch(() => null)` → `setErrors({ form: body?.error ?? "<fallback>" })`
-- a `role="alert"` error paragraph
-
-Extract:
-
-- `src/lib/validations/field-errors.ts` — the `FieldErrors` type + `zodFieldErrors(error)` (wraps `error.flatten().fieldErrors`)
-- `src/lib/post-json.ts` — `postJson<T>(url, body): Promise<{ ok: boolean; status: number; data: T | null }>` (does the try/catch + `res.json().catch`)
-- `src/components/auth/FormError.tsx` — the `role="alert"` block
-
-Optionally a `usePostForm({ schema, url })` hook if the shape lines up cleanly across all five; if it doesn't, stop at the three helpers above.
-
-### 7. Shared auth API-route helpers
-
-`register`, `forgot-password`, `reset-password`, `resend-verification`, `change-password` each repeat: `checkRateLimit` + `rateLimitResponse` (already shared), `await request.json()` in a try/catch → 400, `schema.safeParse(...)` → `NextResponse.json({ error, fieldErrors: err.flatten().fieldErrors }, { status: 400 })`.
-
-- New `src/lib/api/request.ts`: `readJsonBody(request): Promise<unknown | typeof INVALID>` and `validationErrorResponse(zodError): NextResponse` (the 400 + `flatten().fieldErrors` shape).
-- Routes call these instead of re-implementing. Keep `rate-limit.ts` as-is.
-
-### 8. Split `src/lib/db/items.ts` (425 lines)
-
-Item-type concerns are a distinct seam: `ItemTypeWithCount`, `TYPE_ORDER`, `compareTypeOrder`, `getItemTypesWithCounts`, `getItemTypeByName`.
-
-- Move them to `src/lib/db/item-types.ts` (~90 lines). `items.ts` keeps item CRUD + list getters + `getItemStats` + the `ItemWithType` / `ItemDetail` types.
-- Update imports (`Sidebar` via layout, `profile.ts`, `/items/[type]/page.tsx`, `dashboard`). `compareTypeOrder` / `TYPE_ORDER` are also imported by `profile.ts` — re-export from `items.ts` for one release if churn is large, or just fix the imports.
-
-### 9. (minor) `src/actions/items.ts` — auth-gate wrapper
-
-**Skipped** (as the spec allowed). The three actions have different signatures and per-action error strings; a `withAuthedAction` wrapper would add indirection to security-sensitive server actions without making them meaningfully shorter, and the current code is trivially auditable. `ActionResult<T>` is already shared.
-
-## Implementation
-
-Nine `refactor:` commits on `refactor/code-breakup` (branched from `main` after Low-Risk Fixes Batch). All pure — no behaviour change, no new deps.
-
-- **1** New `src/lib/item-type-fields.ts` (`itemTypeFields` +7 tests), `src/lib/tags.ts` (`parseTagsInput` +5 tests), `src/components/items/item-form/` (`Field`, `field-styles`, `ItemContentField`). `NewItemDialog` 322→263, `ItemEditForm` no longer redeclares the kit.
-- **2** `ItemDrawer.tsx` 679→328: `ItemEditForm.tsx`, `FilePreview.tsx`, `item-drawer/{Section,ActionButton,DetailSkeleton}.tsx`, `item-detail-json.ts` split out.
-- **3** `src/lib/format-date.ts` (`formatShortDate` / `formatMediumDate` / `formatLongDate`, +4 tests) — 6 inline formatters (3 byte-identical) replaced.
-- **4** `src/lib/use-copy-to-clipboard.ts` — the Copy→Check logic (3 copies) unified; `CodeEditor` also gained its previously-missing timeout cleanup.
-- **5** `src/lib/upload-client.ts` (`uploadFile`, +6 tests covering the response-parse branch); `FileUpload` 272→237, drives it via an `AbortController`. `UploadedFile` moved there (re-exported).
-- **6** `src/lib/validations/field-errors.ts` (`collectFieldErrors` +4 tests), `src/lib/post-json.ts` (`postJson` +4 tests), `AuthField.tsx`, `FormError.tsx`. `RegisterForm` / `ResetPasswordForm` / `ChangePasswordForm` rewired; `SignInForm` / `ForgotPasswordForm` use `<FormError>`.
-- **7** `src/lib/api/request.ts` (`readJsonBody` + `INVALID_JSON`, `invalidJsonResponse`, `validationErrorResponse`, +6 tests) — 5 auth routes rewired (email-only endpoints keep their detail-less 400 via `includeDetails=false`).
-- **8** `src/lib/db/item-types.ts` (95 lines) split from `src/lib/db/items.ts` (425→332); 5 import sites updated.
-
-`npm run test` **159 pass** (was 123 → +36), `npm run lint`, `npm run build` — all green. Browser-verified (Playwright, demo session, live R2 + Neon): snippet drawer edit → Monaco via `ItemContentField` → Save persisted new tags; New Item dialog `link` → correct fields via `itemTypeFields` → created + shows in Recent → deleted (7→6); drawer read view renders (URL / Tags / Details "September 6, 2026" via `formatLongDate`); image upload via `uploadFile` completed with the `next/image` blob preview + Create enabled (dialog cancelled — leaves one orphaned R2 test object, ~9 KB). `register`/`reset`/`change` not clicked (signed-in session redirects away) but covered by the new unit tests + build. Dev DB re-seeded afterward.
+_None._
 
 ## Notes
 
 <!-- Any extra notes -->
 
-- Do #1 before #2 (the split consumes the kit). #3–#9 are independent of each other and of #1/#2.
-- No component tests in this project — the new `src/lib/**` utilities (`item-type-fields`, `tags`, `format-date`, `upload-client` parse branch, `field-errors`, `post-json`, `api/request`) get Vitest tests in the same commit; the components are re-verified in the browser (New Item dialog for every type, item drawer edit for a snippet + prompt + link, a file/image upload, the gallery/file list, register + reset-password + change-password happy + error paths).
-- The **sidebar sharing** work (dedupe `DashboardShell`'s two `<Sidebar>` renders / extract `Sidebar`'s Types list) is deliberately excluded here — track it separately.
-- Also still pending from the prior audit (not this feature): inline-SVG XSS hardening, `getBaseUrl` host-header fallback, `fileKey` ownership check, unbounded upload body, collection-stats over-fetch, per-image detail query, `next.config.ts` security headers, `Item` / `VerificationToken` indexes, `proxy.ts` `callbackUrl` fix, `TTL_MS` dedupe, `src/lib/mock-data.ts` deletion.
+_None._
 
 ## History
 
@@ -175,3 +61,4 @@ Nine `refactor:` commits on `refactor/code-breakup` (branched from `main` after 
 - File List View — Per `context/features/file-display-spec.md`. Renders `/items/file` as a single-column Drive/Dropbox-style list instead of grid cards. `src/lib/db/items.ts` — `ItemWithType` (returned by `getItemsByType`) gained `fileName` / `fileSize` / `createdAt`; these are `Item` scalar columns the query already returns, so only the `ItemRecord` type + `toItemWithType` mapper changed (no query change) and every existing consumer keeps working via structural typing. `src/components/dashboard/FileRow.tsx` (new) — a list row: extension icon from an `EXTENSION_ICON` map over `extensionOf(fileName)` (`FileText` pdf/txt/md, `FileCode` json/xml/yaml/yml/toml/ini, `FileSpreadsheet` csv, `File` fallback), file name (`fileName ?? title`) with the item title as subtext when it differs, pin/favorite markers, `formatBytes(fileSize)`, upload date via `createdAt` ("Sep 6, 2026"), and a Download `<a href="/api/files/[id]?download=1" download>`. Built as a **stretched-link card** (not the shared `<button>` wrapper): an `absolute inset-0` `<button>` fills the row and calls `onOpen` (drawer); the visible content is `pointer-events-none relative` so clicks fall through to that button; the Download `<a>` is a **sibling** (not nested) with `pointer-events-auto`, so it's a plain same-origin download link with zero `stopPropagation`/event-ordering dependency. Meta (size · date · download) is `flex-col sm:flex-row` — stacks under the name on mobile, download collapses to an icon-only button (`<span class="hidden sm:inline">`). `src/components/items/ItemBrowser.tsx` — `layout` union widened to `"grid" | "gallery" | "files" | "list"`; the `files` branch renders `<FileRow item onOpen={() => select(item)}>` directly (outside the `<button>` map arm, since it owns a link) and shares the `space-y-3` list wrapper with `list`. `src/app/items/[type]/page.tsx` — `layout` is now `image → "gallery"`, `file → "files"`, else `"grid"`. First cut used a `role="button"` wrapper with a nested `<a onClick={stopPropagation}>`; the download depended on `stopPropagation` winning the race against the drawer opening — reworked to the stretched-link pattern after the user reported the download button "does not work". No `src/actions/**` changes and the only `src/lib/**` change is trivial field-forwarding in the unexported `toItemWithType` mapper (no existing coverage for the list getters — Prisma isn't mocked there), so no new Vitest tests. `npm run test` (112 pass), `npm run lint`, `npm run build` — all pass. Browser-verified (Playwright, demo session, live R2 + Neon): created csv/json/md files → distinct icons, size + "Sep 6, 2026" per row; row click (incl. on the filename text) opens the drawer; **Download link downloads the file** (`Content-Disposition: attachment`, 67809 bytes confirmed via `fetch`) and does **not** open the drawer; accessibility tree shows separate `button "Open …"` + `link "Download …"` with no nested interactive elements; mobile (390px) stacks the meta under the name; no console errors. All test items deleted through the app afterward (R2 objects too) — dev DB back to just the pre-existing Resume.pdf file item; temp files cleaned.
 - Card Quick-Copy Icon — A one-click copy control on the item grid cards (`/items/[type]`) and the dashboard's Pinned/Recent rows. `src/lib/db/items.ts` — `ItemWithType` gained `content` / `url` (both already-returned `Item` scalar columns, so only the `ItemRecord` type + `toItemWithType` mapper changed — no query change, every consumer keeps working structurally). New `src/components/items/CopyButton.tsx` (`"use client"`) — a `size-7` bordered icon button that writes `text` to the clipboard, swaps `Copy`→`Check` (emerald) for 1.5s, calls `event.stopPropagation()` so a copy click doesn't also open the drawer, and no-ops when `navigator.clipboard` is missing / blocked (`.catch` swallow). `src/components/items/ItemBrowser.tsx` — the `map` was refactored from a ternary into a block: `files` → `FileRow` and `gallery` → `<button>`-wrapped `ImageCard` are unchanged; `grid` / `list` now render a `FileRow`-style **stretched-link card** (a relative `.group` wrapper holding an `absolute inset-0` trigger `<button>` + `pointer-events-none` content) instead of the old `<button>` wrapper, so the copy button can be a `pointer-events-auto` sibling rather than an invalid nested button. `copyableText(item)` picks `item.url` for `link` types else `item.content` (null/blank → no button). The button is `absolute bottom-3 right-3`, `opacity-0` → visible on `group-hover` / `focus-visible` (its `bg-card` + border cleanly occludes whatever card content sits under the bottom-right corner). `handleSaved` also threads `content` / `url` into the refreshed `summary`. No `src/actions/**` change and the only `src/lib/**` change is field-forwarding in the unexported `toItemWithType` (no existing coverage for the list getters — Prisma isn't mocked there), so no new Vitest tests. `npm run test` (112 pass), `npm run lint`, `npm run build` — all pass. Browser-verified (Playwright, demo session): snippet cards copy the code body, `link` cards copy the URL, dashboard Recent rows copy too (9/10 — the file item correctly has no button), `/items/file` has no copy button (Download intact), `/items/image` gallery unchanged; copy click writes the clipboard and does **not** open the drawer, the card body still opens it; no console errors.
 - Low-Risk Fixes Batch — Hardening & Perf — Five small fixes from the `code-scanner` audit + `/cleanup` scan, one focused commit each. (1) **bcrypt cost factor** — new `src/lib/password.ts` (`BCRYPT_ROUNDS = 12`, `hashPassword` / `verifyPassword` wrappers over `bcryptjs`) is now the single source of truth; `register` / `reset-password` / `change-password` routes, `src/auth.ts`, and `prisma/seed.ts` import it instead of each hardcoding `12` / importing `bcrypt` directly. Behaviour-identical (all sites were already 12). `src/lib/password.test.ts` (+4). (2) **Markdown editor debounce** — new pure `src/lib/debounce.ts` (`debounce(fn, delayMs)` + `.flush()` / `.cancel()`, no React so it's node-testable; `debounce.test.ts` +5 with fake timers). `MarkdownEditor.tsx` now drives the `<textarea>` from local `draft` state and pushes up via `onChange` only after a 250 ms pause (was every keystroke → full `ItemEditForm` / `NewItemDialog` re-render); Preview + Copy read `draft`; `emit.flush()` on blur / Preview-switch / unmount so Save (mousedown blurs first) keeps trailing keystrokes. The stable `emit` is a `useState` lazy init with a one-line `eslint-disable-next-line react-hooks/refs` (reasoned — the callback touches refs only when the timer fires). `CodeEditor` untouched. (3) **URL protocol validation** — `nullableUrl` in `src/lib/validations/item.ts` now parses with `new URL()` and requires `http:` / `https:` (blocks `javascript:` / `data:` / `vbscript:` / `file:` — the value is an `<a href>` in the drawer and is copied by the card copy button). Message → "Enter a valid URL (http or https only)"; the `createItemSchema` link refine aligned to the same text. `item.test.ts` +2. (4) **`<img>` → `next/image`** — `ImageCard` (gallery thumb, `fill` in the `aspect-video` box + `sizes`), the drawer `FilePreview` (`fill` in a new `aspect-video max-h-80` box, `object-contain`), and the `FileUpload` blob preview (64x64). All three `unoptimized` — `/api/files/[id]` is an auth-gated same-origin proxy (the optimizer fetches server-side without the user's cookies) and the preview is a `blob:` URL; the win is dimensions/`fill` for layout stability + built-in lazy loading, and the three `eslint-disable @next/next/no-img-element` comments are gone. No `next.config.ts` change needed. (5) **Upload rate limit** — `POST /api/upload` (the only mutating API route with no limiter) now calls `checkRateLimit({ name: "upload", limit: 30, window: "5 m", identifier: session.user.id })` right after `auth()`, returning 429 in the route's `{ success: false, error }` shape + `Retry-After`; fails open like the other limiters. `npm run test` (**123 pass**, was 112 → +11), `npm run lint`, `npm run build` — all pass. Browser-verified (Playwright, demo session, live R2 + Neon): markdown — typed in a prompt's Write tab, Preview showed the new heading (tab-switch flush), "type then immediately Save" persisted the last keystrokes (blur flush), "Item updated"; URL — `javascript:alert(document.cookie)` rejected inline, drawer stayed in edit mode, re-saving `https://…` worked; images — created an image item, gallery `next/image` tile + drawer `object-contain` preview both render with no console errors, then deleted it (R2 object gone). Dev DB re-seeded afterward; temp files cleaned. Deferred (tracked): inline-SVG XSS hardening, `getBaseUrl` host-header fallback, `fileKey` ownership check, unbounded upload body buffering, collection-stats over-fetch, per-image detail query, `ItemDrawer.tsx` split, `next.config.ts` security headers, `Item` / `VerificationToken` indexes, `proxy.ts` `callbackUrl` fix, `TTL_MS` dedupe, `src/lib/mock-data.ts` deletion.
+- Code Breakup — Extract Shared Functions, Components & Utilities — Pure refactor, no behaviour change, no new deps; nine `refactor:` commits on `refactor/code-breakup`. **(1) Shared item-form field kit** — new `src/lib/item-type-fields.ts` (`itemTypeFields(typeName)` → the `showContent/showLanguage/showUrl/showFileUpload/showCodeEditor/showMarkdownEditor` flags, folding in `isCodeItemType`/`isMarkdownItemType`/`isFileItemType`; +7 tests), `src/lib/tags.ts` (`parseTagsInput`; +5 tests), `src/components/items/item-form/` (`Field.tsx`, `field-styles.ts` = the `textareaClass` string, `ItemContentField.tsx` = the `CodeEditor`→`MarkdownEditor`→`<textarea>` picker). `NewItemDialog` 322→263; `ItemEditForm` stopped redeclaring all of it. **(2) Split `ItemDrawer.tsx`** 679→328 — `ItemEditForm.tsx`, `FilePreview.tsx`, `item-drawer/{Section,ActionButton,DetailSkeleton}.tsx`, and the wire type `item-detail-json.ts` moved out; `ItemBrowser` imports `ItemDetailJson` from the new module. **(3) `src/lib/format-date.ts`** — `formatShortDate` / `formatMediumDate` / `formatLongDate` (last takes `Date | string`), all pinned to `en-US`; +4 tests. Replaced 6 inline formatters (3 byte-identical in `ItemCard`/`ItemRow`/`ImageCard`, plus `FileRow`, `ItemDrawer`, `profile/page`). **(4) `src/lib/use-copy-to-clipboard.ts`** — `useCopyToClipboard()` → `{ copied, copy }`, owning the 1.5 s timeout + `navigator.clipboard?` guard + `.catch` swallow + unmount cleanup. `CopyButton`, `CodeEditor`, `MarkdownEditor` adopt it (`CodeEditor` had been leaking its copy timeout). **(5) `src/lib/upload-client.ts`** — `uploadFile(kind, file, { onProgress, signal })` → `Promise<UploadedFile>`, rejecting with a user-facing message on non-2xx / network error and `AbortError` on abort; +6 tests (fake `XMLHttpRequest`, covers the response-parse branch). `UploadedFile` moved here (re-exported from `FileUpload`). `FileUpload` 272→237, drives it through an `AbortController` and keeps the DnD / phase state / preview object-URL / client `validateUpload` guard. **(6) Auth/profile client-form helpers** — `src/lib/validations/field-errors.ts` (`FieldErrors<K>` + `collectFieldErrors(err, allowed?)`; +4 tests), `src/lib/post-json.ts` (`postJson(url, body)` → `{ ok, status, data }`, never throws — network failure = `status 0`; +4 tests), `src/components/auth/AuthField.tsx` + `FormError.tsx`. `RegisterForm` / `ResetPasswordForm` / `ChangePasswordForm` rewired (each dropped a local `FieldErrors`, the zod-issue loop, the `try{fetch}catch`, `res.json().catch`, and Register/Change a byte-identical `Field`); `SignInForm` / `ForgotPasswordForm` use `<FormError>` (ResetPasswordForm keeps its custom bordered box). **(7) `src/lib/api/request.ts`** — `readJsonBody(request)` (never throws, returns the `INVALID_JSON` sentinel), `invalidJsonResponse()`, `validationErrorResponse(err, message, includeDetails=true)`; +6 tests. The 5 auth routes (`register` / `forgot-password` / `reset-password` / `resend-verification` / `change-password`) rewired — email-only endpoints pass `includeDetails=false` to keep their detail-less 400. **(8) Split `src/lib/db/items.ts`** 425→332 — `ItemTypeWithCount`, `TYPE_ORDER`, `compareTypeOrder`, `getItemTypesWithCounts`, `getItemTypeByName` moved to `src/lib/db/item-types.ts` (95 lines); 5 import sites updated (`dashboard/layout`, `items/[type]/page`, `DashboardShell`, `Sidebar`, `db/profile`). **(9) `src/actions/items.ts` auth wrapper — skipped** (spec allowed): the 3 actions have different signatures + per-action error strings, and a wrapper would only add indirection to security-sensitive code. Excluded by request: the sidebar-sharing work (`DashboardShell`'s two `<Sidebar>` renders / `Sidebar`'s inline Types `<ul>`). `npm run test` **159 pass** (was 123 → +36 across 7 new lib test files), `npm run lint`, `npm run build` — all green. Browser-verified (Playwright, demo session, live R2 + Neon): snippet drawer edit → Monaco via `ItemContentField` → Save persisted new tags; New Item `link` → correct fields via `itemTypeFields` → created (shows in Recent) → deleted (7→6); drawer read view (URL / Tags / Details "September 6, 2026" via `formatLongDate`); image upload via `uploadFile` completed with the `next/image` blob preview + Create enabled (dialog cancelled — left one orphaned R2 test object, ~9 KB, not reachable for cleanup through the app). `register` / `reset` / `change` not clicked (signed-in session redirects away) — covered by the new unit tests + build. Dev DB re-seeded afterward.
