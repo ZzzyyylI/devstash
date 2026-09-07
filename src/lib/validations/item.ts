@@ -29,13 +29,28 @@ const nullableContent = z
     return raw.trim().length > 0 ? raw : null;
   });
 
-/** Optional URL: "" / null / undefined -> null, otherwise must be a valid URL. */
+/** True only for a parseable `http:` / `https:` URL — blocks `javascript:`, `data:`, etc. */
+function isHttpUrl(value: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return false;
+  }
+  return parsed.protocol === "http:" || parsed.protocol === "https:";
+}
+
+/**
+ * Optional URL: "" / null / undefined -> null, otherwise must be a valid
+ * `http(s)` URL. The stored value is rendered as an `<a href>` (item drawer) and
+ * offered by the card copy button, so non-web schemes are rejected outright.
+ */
 const nullableUrl = z
   .union([z.string(), z.null()])
   .optional()
   .transform((value) => (value ?? "").trim())
-  .refine((value) => value === "" || z.url().safeParse(value).success, {
-    message: "Enter a valid URL (including https://)",
+  .refine((value) => value === "" || isHttpUrl(value), {
+    message: "Enter a valid URL (http or https only)",
   })
   .transform((value) => (value === "" ? null : value));
 
@@ -134,7 +149,7 @@ export const createItemSchema = z
     ...fileFields,
   })
   .refine((data) => data.type !== "link" || data.url !== null, {
-    message: "Enter a valid URL (including https://)",
+    message: "Enter a valid URL (http or https only)",
     path: ["url"],
   })
   .refine(
