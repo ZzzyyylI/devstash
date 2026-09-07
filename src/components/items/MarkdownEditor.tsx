@@ -7,6 +7,7 @@ import { Check, Copy } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { debounce, type Debounced } from "@/lib/debounce";
+import { useCopyToClipboard } from "@/lib/use-copy-to-clipboard";
 
 /** The editor grows with its content between these bounds; past the max it scrolls. */
 const MIN_HEIGHT = 240;
@@ -46,8 +47,7 @@ export function MarkdownEditor({
 }: MarkdownEditorProps) {
   const isReadOnly = readOnly || !onChange;
   const [tab, setTab] = useState<Tab>(isReadOnly ? "preview" : "write");
-  const [copied, setCopied] = useState(false);
-  const copyTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { copied, copy } = useCopyToClipboard();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // The textarea is driven by local `draft` for instant feedback; the value is
@@ -114,21 +114,6 @@ export function MarkdownEditor({
     }
   }, [autoFocus, isReadOnly, tab]);
 
-  useEffect(() => {
-    return () => {
-      if (copyTimeout.current) clearTimeout(copyTimeout.current);
-    };
-  }, []);
-
-  function handleCopy() {
-    if (!navigator.clipboard) return;
-    void navigator.clipboard.writeText(draft).then(() => {
-      setCopied(true);
-      if (copyTimeout.current) clearTimeout(copyTimeout.current);
-      copyTimeout.current = setTimeout(() => setCopied(false), 1500);
-    });
-  }
-
   return (
     <div
       className={cn(
@@ -155,7 +140,7 @@ export function MarkdownEditor({
         </div>
         <button
           type="button"
-          onClick={handleCopy}
+          onClick={() => copy(draft)}
           className="inline-flex cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium text-white/50 transition-colors hover:bg-white/10 hover:text-white/80"
         >
           {copied ? <Check className="size-3" /> : <Copy className="size-3" />}

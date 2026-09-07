@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import Editor, { type Monaco, type OnMount } from "@monaco-editor/react";
 import { Check, Copy } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useCopyToClipboard } from "@/lib/use-copy-to-clipboard";
 import { toMonacoLanguage } from "@/lib/code-editor";
 
 /** Editor grows with its content between these bounds; past the max it scrolls. */
@@ -66,8 +67,7 @@ export function CodeEditor({
 }: CodeEditorProps) {
   const isReadOnly = readOnly || !onChange;
   const [height, setHeight] = useState(() => estimateHeight(value));
-  const [copied, setCopied] = useState(false);
-  const copyTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { copied, copy } = useCopyToClipboard();
 
   const handleBeforeMount = useCallback((monaco: Monaco) => {
     defineTheme(monaco);
@@ -82,15 +82,6 @@ export function CodeEditor({
     },
     [autoFocus, isReadOnly],
   );
-
-  function handleCopy() {
-    if (!navigator.clipboard) return;
-    void navigator.clipboard.writeText(value).then(() => {
-      setCopied(true);
-      if (copyTimeout.current) clearTimeout(copyTimeout.current);
-      copyTimeout.current = setTimeout(() => setCopied(false), 1500);
-    });
-  }
 
   const label = (language ?? "").trim();
 
@@ -115,7 +106,7 @@ export function CodeEditor({
           )}
           <button
             type="button"
-            onClick={handleCopy}
+            onClick={() => copy(value)}
             className="inline-flex cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium text-white/50 transition-colors hover:bg-white/10 hover:text-white/80"
           >
             {copied ? (

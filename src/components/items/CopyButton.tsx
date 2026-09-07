@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useCopyToClipboard } from "@/lib/use-copy-to-clipboard";
 
 /**
  * A small icon button that copies `text` to the clipboard and briefly swaps to a
@@ -20,20 +20,11 @@ export function CopyButton({
   label?: string;
   className?: string;
 }) {
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopyToClipboard();
 
   function handleCopy(event: React.MouseEvent) {
     event.stopPropagation();
-    const done = navigator.clipboard?.writeText(text);
-    if (!done) return;
-    done
-      .then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      })
-      .catch(() => {
-        /* clipboard blocked — nothing to do */
-      });
+    copy(text);
   }
 
   return (
