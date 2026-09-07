@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
 
 import { prisma } from "@/lib/prisma";
+import { hashPassword } from "@/lib/password";
 import { resetPasswordSchema } from "@/lib/validations/auth";
 import { consumePasswordResetToken } from "@/lib/tokens";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const passwordHash = await bcrypt.hash(password, 12);
+  const passwordHash = await hashPassword(password);
 
   // `updateMany` so a since-deleted account is a no-op, not a throw. The token
   // was valid, so from the user's side the reset still "succeeded".
