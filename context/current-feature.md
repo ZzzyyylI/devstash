@@ -1,45 +1,18 @@
 # Current Feature
 
-Collection Edit / Delete (+ Favorite placeholder)
+_None — ready for the next feature._
 
 ## Status
 
-In progress
+Completed
 
 ## Goals
 
-- **`/collections/[id]` header** — add three icon buttons next to the collection name:
-  - **Favorite** — icon button only, no behaviour yet (placeholder for a later feature).
-  - **Edit** — opens a modal to edit the collection's metadata (name + description).
-  - **Delete** — opens a confirmation dialog; on confirm, deletes the collection and
-    navigates back to `/collections`. Items are **not** deleted — they simply stop
-    belonging to the collection (the `CollectionItem` join rows cascade away).
-- **Cards on `/collections` and the dashboard Collections section** — add a three-dots
-  icon that opens a dropdown menu with **Edit**, **Delete**, and **Favorite** (same
-  behaviours / same placeholder as above). Clicking anywhere else on the card still
-  navigates to that collection's detail page.
+_None._
 
 ## Notes
 
-- New data layer: `updateCollection(id, data)` + `deleteCollection(id)` in
-  `src/lib/db/collections.ts` (demo-user scoped, ownership check, mirrors
-  `createCollection` / the item write helpers).
-- New validation: `updateCollectionSchema` in `src/lib/validations/collection.ts`
-  (identical shape to `createCollectionSchema`).
-- New API route: `PATCH` + `DELETE` at `src/app/api/collections/[id]/route.ts`
-  (collections mutate through API routes, per the create feature's decision —
-  same `{ success, error, details? }` shape + `src/lib/api/request.ts` helpers).
-- New UI primitive: `src/components/ui/dropdown-menu.tsx` wrapping `radix-ui`'s
-  DropdownMenu (same hand-written pattern as `dialog.tsx` / `alert-dialog.tsx`).
-- New components: `EditCollectionDialog`, `DeleteCollectionDialog`,
-  `CollectionActionsMenu` (cards), `CollectionDetailActions` (detail header).
-- `CollectionCard` restructured to the codebase's stretched-link pattern
-  (absolute `<Link>` overlay + `pointer-events-none` content + the menu as a
-  `pointer-events-auto` sibling), like `FileRow` / the `ItemBrowser` grid cards.
-- No schema change (`Collection` already has `name` / `description` / `isFavorite`;
-  `CollectionItem` FKs are already `onDelete: Cascade`).
-- Tests: `updateCollectionSchema` cases in `collection.test.ts`;
-  `updateCollection` / `deleteCollection` cases in `collections.test.ts`.
+_None._
 
 ## History
 
@@ -75,5 +48,5 @@ In progress
 - Collection Create — Top-bar "New Collection" opens a create modal. `createCollectionSchema` + `createCollection` query + `POST /api/collections` (API route, not a server action — deliberate divergence from item-create). `NewCollectionDialog` modeled on `NewItemDialog`. Tests: `collection.test.ts` (4) + `collections.test.ts` (3).
 - Item ↔ Collections — Many-to-Many + Form Picker — `CollectionItem` join model, `getCollectionOptions` + `GET /api/collections`, `CollectionPicker` in the item forms, migration `20260906120000_item_collections_many_to_many`.
 - Collections Pages — List & Detail — real `/collections` list + new `/collections/[id]` detail (`getCollectionById` + `getItemsByCollection`, `<ItemBrowser layout="grid">`). `CollectionCard` became a `<Link>`; sidebar collection rows + "View all" became links.
+- Collection Edit / Delete (+ Favorite placeholder) — Per `context/current-feature.md`. **Data layer** (`src/lib/db/collections.ts`): `updateCollection(id, data)` (demo-user scoped; ownership folded into a `updateMany` `where`, `count === 0` → `null`, else re-reads the fresh `CollectionSummary`) and `deleteCollection(id)` (`deleteMany` `where: { id, userId }`, returns `count > 0`). Deleting a collection does **not** touch its items — only the `CollectionItem` join rows cascade away (`onDelete: Cascade`, already in schema). **Validation** (`src/lib/validations/collection.ts`): `updateCollectionSchema` = alias of `createCollectionSchema` (+ `UpdateCollectionInput`). **API** — new `src/app/api/collections/[id]/route.ts` with `PATCH` (auth → `readJsonBody`/`INVALID_JSON` guard → `updateCollectionSchema.safeParse` → `validationErrorResponse` → `updateCollection`, `null` → 404, else `{ success, data }`) and `DELETE` (auth → `deleteCollection`, `false` → 404, else `{ success, data: { id } }`); same `{ success, error, details? }` shape + `src/lib/api/request.ts` helpers as `POST /api/collections` (kept an API route, not a server action, mirroring the create-collection decision). **UI primitive** — new `src/components/ui/dropdown-menu.tsx`, hand-written on `radix-ui`'s `DropdownMenu` (Root/Trigger/Content/Item/Separator; `Item` has a `destructive` variant), same pattern as `dialog.tsx` / `alert-dialog.tsx`; uses `bg-popover` tokens. **Components**: `EditCollectionDialog` (`"use client"`, modeled on `NewCollectionDialog` — shared `Dialog` primitive + `Field` + `textareaClass`, render-phase re-seed from props on open, `postJson(url, body, "PATCH")`, inline `fieldErrors` from `details`, `sonner` toast, `router.refresh()`, optional `onSaved`); `DeleteCollectionDialog` (`AlertDialog` confirmation, `postJson(url, undefined, "DELETE")`, treats a **404 as already-done** so a stale tab still proceeds, then calls `onDeleted` — it does **not** flip its own `open`, so there's no close-vs-navigate race); `CollectionActionsMenu` (the three-dots dropdown for cards — Edit / Favorite / Delete; `onDeleted` = `setDeleteOpen(false)` + `router.refresh()`); `CollectionDetailActions` (Favorite / Edit / Delete icon buttons for the `/collections/[id]` header; `onDeleted` = `setDeleteOpen(false)` + `router.push("/collections")`). **Favorite is a placeholder everywhere — an inert icon button / menu item, no handler** (deferred to a later feature). **`CollectionCard`** restructured from a single `<Link>` to the codebase's stretched-link pattern: a `.group.relative` wrapper holding an `absolute inset-0` `<Link>` overlay (aria-label "Open <name>") under `pointer-events-none relative z-10` content, with `<CollectionActionsMenu>` as an `absolute top-3 right-3 z-10` sibling (its own `<button>` trigger stays clickable); title row got `pr-8` to clear the button. One change covers the dashboard `CollectionsSection` and the `/collections` list. **`/collections/[id]/page.tsx`** — header wrapped in a `flex items-start justify-between` row with `<CollectionDetailActions collection={collection}>` (the existing `getCollectionById` `CollectionSummary` already matches the needed `{ id, name, description, isFavorite }`). **`src/lib/post-json.ts`** — `postJson` gained an optional 3rd `method` arg (default `"POST"`) so it can also do PATCH/DELETE; existing callers unaffected. First cut had `DeleteCollectionDialog` flip its own `open` then call `onDeleted()`, which raced with the AlertDialog close and sometimes swallowed the `router.push` (user-reported "does not redirect after delete"); reworked so the parent owns what happens next. **Tests +9** → `npm run test` **187 pass** (was 178): `collection.test.ts` — `updateCollectionSchema` is the same object as `createCollectionSchema` + trims/requires name/normalises description (×2); `collections.test.ts` — `updateCollection` (no demo user → `null`/no write; happy path asserts exact `updateMany` + re-read `findFirst` shape; `count: 0` → `null` without re-reading) and `deleteCollection` (no demo user → `false`/no write; scoped `deleteMany`; foreign id → `false`) (×6); `post-json.test.ts` — passes the `method` arg through (×1). `npm run lint`, `npm run build` — both green (`/api/collections/[id]` shows as a new `ƒ` route). Browser-verified (Playwright, demo session, live Neon): detail-page Edit → modal pre-filled → PATCH 200 → header + toast update; detail-page Delete → confirm → toast + **redirect to `/collections`**, list down one, **all 18 items intact** (3 `CollectionItem` join rows cascaded); card three-dots menu (dashboard + `/collections`) → Edit refreshes the card in place, Delete stays on the page with the list refreshed, Favorite is inert (no console error); card body click still navigates to the detail page. Dev DB re-seeded afterward. Deferred (raised earlier, still open): shared `BackLink` / `pluralize()` / `ListPageShell` extraction across `/items/[type]`, `/collections`, `/collections/[id]`; collection favorite toggle; adding items to a collection from these pages; pagination.
 </content>
-</invoke>
