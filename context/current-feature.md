@@ -1,18 +1,27 @@
-# Current Feature
-
-_None — ready for the next feature._
+# Current Feature: Unified Folder Logo + Top Nav on Auth Pages
 
 ## Status
 
-Completed
+In Progress
 
 ## Goals
 
-_None._
+- **Top nav on auth pages** — Render the marketing `HomeNav` (`src/components/home/HomeNav.tsx`) fixed top bar on `/sign-in` and `/register`. Signed-out state (`signedIn={false}`) — both pages already `redirect("/dashboard")` when a session exists — so the nav shows "Sign In" / "Get Started". Add top padding to the centered auth card so the fixed `h-16` nav doesn't overlap it.
+- **Folder-icon logo everywhere** — Replace the logo mark with the lucide `Folder` icon + "DevStash" wordmark in all three places:
+  - `HomeNav` — swap the `<span class="font-mono text-[#3b82f6]">&lt;/&gt;</span>` mark for `<Folder />`.
+  - `/sign-in` + `/register` pages — swap the `<Layers />` icon for `<Folder />`.
+  - Dashboard sidebar brand (`src/components/dashboard/Sidebar.tsx`, the `h-14` brand row) — swap the `<Layers />` icon for `<Folder />`.
+- **Remove the "DS" box** — Delete the colored `bg-primary` rounded-square wrapper around the logo icon on `/sign-in`, `/register`, and the dashboard sidebar brand. The `Folder` icon sits bare next to the "DevStash" wordmark, matching `HomeNav`'s boxless treatment. Pick an icon color that reads on the plain background (e.g. the home nav's `text-[#3b82f6]`, or a theme token).
 
 ## Notes
 
-_None._
+- Confirmed with the user (2026-09-07): "folder icon everywhere" (the home nav currently has a `</>` mark, not a folder — it gets changed too), and "the box with the DS" = the `bg-primary` rounded square that wraps the logo icon on the auth pages and sidebar (there is no literal "DS" text anywhere).
+- `HomeNav` is a `"use client"` component with a `scroll` listener and a required `signedIn: boolean` prop. Auth pages are async server components that call `auth()` — pass `signedIn={false}` (or derive from the already-loaded session, which is always null past the redirect guard).
+- `HomeNav`'s `#features` / `#pricing` anchor links do nothing off the homepage. Consider pointing them at `/#features` / `/#pricing` (or hiding them on auth pages) so they still work — decide during implementation.
+- Showing "Sign In" / "Get Started" buttons in the nav *on* the sign-in / register page is slightly redundant but consistent; acceptable. The logo link (`/`) gives users a way back to the marketing page, which is the main win.
+- The dashboard sidebar renders in both the desktop rail and the mobile drawer (via `DashboardShell`); the brand row change covers both. When `collapsed`, only the icon shows (no wordmark) — the bare `Folder` icon must still look right centered in the collapsed rail.
+- Scope is presentational only — no data layer, no new deps (lucide `Folder` is already imported in `Sidebar.tsx` for collection rows), no schema, no routes. No new Vitest suites expected (client/server components are outside the `src/{actions,lib}` test scope); still run `npm run test` / `lint` / `build` and verify in the browser.
+- Pre-existing uncommitted changes on `main` (`.env.example` Stripe stubs, untracked `.claude/agents/ui-reviewer.md`, untracked `context/features/stripe-*` + `context/research/stripe-*`) are unrelated — exclude them from this feature's commit, as prior features did.
 
 ## History
 

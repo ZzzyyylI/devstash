@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, Folder, Layers, Star } from "lucide-react";
+import { ChevronDown, Folder, Star } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { ItemTypeWithCount } from "@/lib/db/item-types";
@@ -51,10 +51,13 @@ export function Sidebar({
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
       {/* Brand */}
-      <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
-        <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
-          <Layers className="size-4" />
-        </div>
+      <div
+        className={cn(
+          "flex h-14 shrink-0 items-center gap-2 border-b border-border px-4",
+          collapsed && "justify-center",
+        )}
+      >
+        <Folder className="size-5 shrink-0 text-[#3b82f6]" />
         {!collapsed && <span className="text-sm font-semibold">DevStash</span>}
       </div>
 

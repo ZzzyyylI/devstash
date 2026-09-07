@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Folder } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -31,17 +32,23 @@ export function HomeNav({ signedIn }: { signedIn: boolean }) {
           href="/"
           className="flex items-center gap-2 font-extrabold tracking-tight"
         >
-          <span className="font-mono text-[#3b82f6]">&lt;/&gt;</span>
+          <Folder className="size-5 text-[#3b82f6]" />
           <span>DevStash</span>
         </Link>
 
         <div className="ml-2 hidden gap-6 text-sm text-muted-foreground sm:flex">
-          <a href="#features" className="transition-colors hover:text-foreground">
+          <Link
+            href="/#features"
+            className="transition-colors hover:text-foreground"
+          >
             Features
-          </a>
-          <a href="#pricing" className="transition-colors hover:text-foreground">
+          </Link>
+          <Link
+            href="/#pricing"
+            className="transition-colors hover:text-foreground"
+          >
             Pricing
-          </a>
+          </Link>
         </div>
 
         <div className="ml-auto flex items-center gap-2">
