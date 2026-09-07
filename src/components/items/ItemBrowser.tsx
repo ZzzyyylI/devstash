@@ -9,7 +9,8 @@ import { ItemCard } from "@/components/dashboard/ItemCard";
 import { ImageCard } from "@/components/dashboard/ImageCard";
 import { ItemRow } from "@/components/dashboard/ItemRow";
 import { FileRow } from "@/components/dashboard/FileRow";
-import { ItemDrawer, type ItemDetailJson } from "@/components/items/ItemDrawer";
+import { ItemDrawer } from "@/components/items/ItemDrawer";
+import type { ItemDetailJson } from "@/components/items/item-detail-json";
 import { CopyButton } from "@/components/items/CopyButton";
 
 /** The text a card's quick-copy button copies: the URL for links, else the body. */
