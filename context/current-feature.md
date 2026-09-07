@@ -1,18 +1,24 @@
 # Current Feature
 
-_None — ready for the next feature._
+Responsive Dashboard Top Bar — see `context/features/responsive-topbar-spec.md`.
 
 ## Status
 
-Completed
+In progress
 
 ## Goals
 
-_None._
+Stop the dashboard top bar overflowing on small screens (horizontal page scroll,
+"New Item" clipped off-screen, wrapped search placeholder). Below `sm`: collapse
+`New Collection` + `New Item` into one `+ New` dropdown, collapse the search
+field to an icon-only palette trigger, add `min-w-0` / `shrink-0` overflow
+guards. From `sm:` up the layout is unchanged.
 
 ## Notes
 
-_None._
+- `src/components/dashboard/TopBar.tsx` is self-contained — no layout/prop
+  changes. Reuse the existing `dropdown-menu.tsx` primitive; no new deps.
+- Client component → no Vitest; verify with Playwright at 320/375/640/1280.
 
 ## History
 
