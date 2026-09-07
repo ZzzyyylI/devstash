@@ -22,10 +22,15 @@ import { cn } from "@/lib/utils";
 import type { ItemDetail, ItemWithType } from "@/lib/db/items";
 import { deleteItem, updateItem } from "@/actions/items";
 import { isCodeItemType, isMarkdownItemType } from "@/lib/validations/item";
+import { itemTypeFields } from "@/lib/item-type-fields";
+import { parseTagsInput } from "@/lib/tags";
 import { formatBytes } from "@/lib/file-constraints";
 import { FALLBACK_ICON, palette, TYPE_ICON } from "@/lib/type-presentation";
 import { CodeEditor } from "@/components/items/CodeEditor";
 import { MarkdownEditor } from "@/components/items/MarkdownEditor";
+import { Field } from "@/components/items/item-form/Field";
+import { textareaClass } from "@/components/items/item-form/field-styles";
+import { ItemContentField } from "@/components/items/item-form/ItemContentField";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -59,11 +64,6 @@ function formatLongDate(value: string): string {
     day: "numeric",
   });
 }
-
-/** Item type names that get a Content textarea in the edit form. */
-const CONTENT_TYPES = ["snippet", "prompt", "command", "note"];
-/** Item type names that get a Language input in the edit form. */
-const LANGUAGE_TYPES = ["snippet", "command"];
 
 interface ItemDrawerProps {
   open: boolean;
@@ -359,12 +359,9 @@ function ItemEditForm({
   onCancel: () => void;
   onSaved: (updated: ItemDetailJson) => void;
 }) {
-  const typeName = detail.type.name.toLowerCase();
-  const showContent = CONTENT_TYPES.includes(typeName);
-  const showLanguage = LANGUAGE_TYPES.includes(typeName);
-  const showCodeEditor = isCodeItemType(typeName);
-  const showMarkdownEditor = isMarkdownItemType(typeName);
-  const showUrl = typeName === "link";
+  const { showContent, showLanguage, showUrl } = itemTypeFields(
+    detail.type.name,
+  );
 
   const [title, setTitle] = useState(detail.title);
   const [description, setDescription] = useState(detail.description ?? "");
@@ -387,10 +384,7 @@ function ItemEditForm({
     const result = await updateItem(detail.id, {
       title,
       description,
-      tags: tagsInput
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter(Boolean),
+      tags: parseTagsInput(tagsInput),
       content: showContent ? content : null,
       language: showLanguage ? language : null,
       url: showUrl ? url : null,
@@ -453,27 +447,13 @@ function ItemEditForm({
         </Field>
 
         {showContent && (
-          <Field label="Content" error={fieldErrors.content}>
-            {showCodeEditor ? (
-              <CodeEditor
-                value={content}
-                onChange={setContent}
-                language={language}
-              />
-            ) : showMarkdownEditor ? (
-              <MarkdownEditor value={content} onChange={setContent} />
-            ) : (
-              <textarea
-                value={content}
-                onChange={(event) => setContent(event.target.value)}
-                rows={8}
-                className={cn(
-                  textareaClass,
-                  "font-mono text-xs leading-relaxed",
-                )}
-              />
-            )}
-          </Field>
+          <ItemContentField
+            typeName={detail.type.name}
+            value={content}
+            onChange={setContent}
+            language={language}
+            error={fieldErrors.content}
+          />
         )}
 
         {showLanguage && (
@@ -512,36 +492,6 @@ function ItemEditForm({
         </Field>
       </div>
     </form>
-  );
-}
-
-const textareaClass =
-  "w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive dark:bg-input/30";
-
-function Field({
-  label,
-  hint,
-  error,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  error?: string[];
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-baseline justify-between gap-2">
-        <label className="text-sm font-medium">{label}</label>
-        {hint && (
-          <span className="text-xs text-muted-foreground">{hint}</span>
-        )}
-      </div>
-      {children}
-      {error && error.length > 0 && (
-        <p className="text-xs text-destructive">{error[0]}</p>
-      )}
-    </div>
   );
 }
 
