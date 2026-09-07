@@ -1,18 +1,32 @@
-# Current Feature
-
-_None — ready for the next feature._
+# Current Feature: Homepage Mockup
 
 ## Status
 
-Completed
+In Progress
 
 ## Goals
 
-_None._
+- Standalone marketing homepage prototype in `prototypes/homepage/` — `index.html`, `styles.css`, `script.js` (not wired into the Next.js app)
+- Dark theme; item-type accent colors: Snippet `#3b82f6`, Prompt `#f59e0b`, Command `#06b6d4`, Note `#22c55e`, File `#64748b`, Image `#ec4899`, URL `#6366f1`
+- **Hero (main focus)** — "chaos to order" with three side-by-side elements:
+  - Chaos container (left): "Your knowledge today..." box with 8 floating icons (Notion, GitHub, Slack, VS Code, browser tabs, terminal, text file, bookmark) that drift, bounce off walls, pulse/rotate, and repel from the mouse cursor (`requestAnimationFrame`)
+  - Transform arrow (center): CSS pulse animation
+  - Dashboard preview (right): "...with DevStash" box — sidebar nav + grid of item cards with colored top borders
+- Navigation — fixed top nav: logo, Features/Pricing links, Sign In / Get Started buttons; grows more opaque on scroll
+- Hero text (above the visual) — "Stop Losing Your Developer Knowledge" headline with gradient text, subheadline, CTA buttons
+- Features — 6-card grid (Code Snippets, AI Prompts, Instant Search, Commands, Files & Docs, Collections), each in its item-type accent color
+- AI section — two columns: left "Pro Feature" badge + AI capability checklist; right a code-editor mockup with an "AI Generated Tags" demo
+- Pricing — Free ($0, 50 items, 3 collections) vs Pro ($8/mo, unlimited, AI features); Pro highlighted with "Most Popular" badge; monthly/yearly toggle ($72/yr option)
+- CTA — "Ready to Organize Your Knowledge?" with button
+- Footer — logo, link columns, copyright with current year
+- Scroll-triggered fade-in for sections
+- Responsive — mobile stacks chaos/arrow/dashboard vertically, single-column grids, arrow rotates 90° to point down
 
 ## Notes
 
-_None._
+- Spec: `context/features/homepage-mockup-spec.md`
+- Pure static prototype (HTML/CSS/vanilla JS) — mirrors the existing `context/screenshots` prototype approach, kept out of `src/`
+- No DB, no server actions, no tests (outside `src/{actions,lib}`) — build/lint/test steps of the workflow largely N/A; verify visually in the browser
 
 ## History
 
