@@ -19,9 +19,8 @@ vi.mock("@/lib/r2", () => ({
   toObjectKey: vi.fn((v: string) => v),
 }));
 
-const { getItemsByType, getItemsByCollection, getAllItems } = await import(
-  "@/lib/db/items"
-);
+const { getItemsByType, getItemsByCollection, getAllItems, getFavoriteItems } =
+  await import("@/lib/db/items");
 
 beforeEach(() => {
   item.findMany.mockReset();
@@ -168,6 +167,31 @@ describe("getAllItems", () => {
 
     expect(item.findMany).toHaveBeenCalledWith({
       where: { userId: "user_1" },
+      orderBy: { updatedAt: "desc" },
+      include: INCLUDE,
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ id: "item_1", tags: ["react", "hooks"] });
+  });
+});
+
+describe("getFavoriteItems", () => {
+  it("returns an empty list and never queries when there is no demo user", async () => {
+    getDemoUserId.mockResolvedValue(null);
+
+    const result = await getFavoriteItems();
+
+    expect(result).toEqual([]);
+    expect(item.findMany).not.toHaveBeenCalled();
+  });
+
+  it("fetches the demo user's favorited items, newest first, with type + tags", async () => {
+    item.findMany.mockResolvedValue([itemRecord()]);
+
+    const result = await getFavoriteItems();
+
+    expect(item.findMany).toHaveBeenCalledWith({
+      where: { userId: "user_1", isFavorite: true },
       orderBy: { updatedAt: "desc" },
       include: INCLUDE,
     });

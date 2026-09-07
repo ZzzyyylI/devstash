@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FolderPlus, PanelLeft, Plus, Search } from "lucide-react";
+import Link from "next/link";
+import { FolderPlus, PanelLeft, Plus, Search, Star } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { NewItemDialog } from "@/components/items/NewItemDialog";
@@ -82,6 +83,11 @@ export function TopBar({
       </button>
 
       <div className="ml-auto flex items-center gap-2">
+        <Button variant="ghost" size="icon" asChild aria-label="Favorites">
+          <Link href="/favorites">
+            <Star />
+          </Link>
+        </Button>
         <Button
           variant="outline"
           size="lg"

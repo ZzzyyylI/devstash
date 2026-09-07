@@ -23,6 +23,7 @@ const {
   getCollectionById,
   getCollectionsPage,
   getSearchCollections,
+  getFavoriteCollections,
   updateCollection,
   deleteCollection,
 } = await import("@/lib/db/collections");
@@ -142,6 +143,40 @@ describe("getSearchCollections", () => {
     expect(result).toEqual([
       { id: "col_1", name: "AI Workflows", itemCount: 3 },
       { id: "col_2", name: "React Patterns", itemCount: 0 },
+    ]);
+  });
+});
+
+describe("getFavoriteCollections", () => {
+  it("returns an empty list and never queries when there is no demo user", async () => {
+    getDemoUserId.mockResolvedValue(null);
+
+    const result = await getFavoriteCollections();
+
+    expect(result).toEqual([]);
+    expect(collection.findMany).not.toHaveBeenCalled();
+  });
+
+  it("fetches favorited collections newest first with id + name + item count + date", async () => {
+    const updatedAt = new Date("2026-09-05T00:00:00.000Z");
+    collection.findMany.mockResolvedValue([
+      { id: "col_1", name: "React Patterns", updatedAt, _count: { items: 4 } },
+    ]);
+
+    const result = await getFavoriteCollections();
+
+    expect(collection.findMany).toHaveBeenCalledWith({
+      where: { userId: "user_1", isFavorite: true },
+      orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        updatedAt: true,
+        _count: { select: { items: true } },
+      },
+    });
+    expect(result).toEqual([
+      { id: "col_1", name: "React Patterns", itemCount: 4, updatedAt },
     ]);
   });
 });

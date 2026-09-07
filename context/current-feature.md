@@ -1,18 +1,29 @@
-# Current Feature
-
-_None — ready for the next feature._
+# Current Feature: Favorites Page
 
 ## Status
 
-Completed
+In Progress
 
 ## Goals
 
-_None._
+- Add a `/favorites` page listing all favorited items and collections in a compact, dev-focused list
+- Add a star icon button to the TopBar linking to `/favorites`
+- Protect the `/favorites` route (middleware, like `/profile` / `/settings`)
+- Fetch all of the user's favorited items and favorited collections
+- Compact list view (VS Code / terminal style — not cards)
+- Each row shows: type icon, title, type badge, date added
+- Separate sections for items and collections, each with a count
+- Clicking an item opens the `ItemDrawer`; clicking a collection navigates to `/collections/[id]`
+- Empty state when there are no favorites
+- Sort by most recently favorited (`updatedAt`)
 
 ## Notes
 
-_None._
+- UI style: monospace / semi-monospace font, minimal padding, high density, subtle hover states, no cards or heavy borders — clean lines only
+- Spec: `context/features/favorites-spec.md`
+- Reuse the shared item-drawer hook (`src/components/items/use-item-drawer.ts`) / `ItemBrowser` pattern for the item rows
+- Collections currently have no favorite toggle UI (deferred in the Collection Edit/Delete feature); this page only *reads* `isFavorite`. Demo data now has 6 favorite items + 2 favorite collections (set via Neon MCP)
+- TopBar only exists on `/dashboard` today — confirm where the star button should live so it's reachable
 
 ## History
 
