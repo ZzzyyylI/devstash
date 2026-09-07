@@ -4,6 +4,12 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { changePasswordSchema } from "@/lib/validations/auth";
+import {
+  INVALID_JSON,
+  invalidJsonResponse,
+  readJsonBody,
+  validationErrorResponse,
+} from "@/lib/api/request";
 
 /**
  * POST /api/auth/change-password  { currentPassword, newPassword, confirmPassword }
@@ -21,26 +27,12 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json(
-      { success: false, error: "Invalid JSON body" },
-      { status: 400 },
-    );
-  }
+  const body = await readJsonBody(request);
+  if (body === INVALID_JSON) return invalidJsonResponse();
 
   const parsed = changePasswordSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Invalid password details",
-        details: parsed.error.flatten().fieldErrors,
-      },
-      { status: 400 },
-    );
+    return validationErrorResponse(parsed.error, "Invalid password details");
   }
 
   const { currentPassword, newPassword } = parsed.data;

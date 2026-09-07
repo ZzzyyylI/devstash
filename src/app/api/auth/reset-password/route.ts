@@ -5,6 +5,12 @@ import { hashPassword } from "@/lib/password";
 import { resetPasswordSchema } from "@/lib/validations/auth";
 import { consumePasswordResetToken } from "@/lib/tokens";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import {
+  INVALID_JSON,
+  invalidJsonResponse,
+  readJsonBody,
+  validationErrorResponse,
+} from "@/lib/api/request";
 
 /**
  * POST /api/auth/reset-password  { token, password, confirmPassword }
@@ -15,26 +21,12 @@ import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
  * time. Errors are phrased around the token, never the account.
  */
 export async function POST(request: Request) {
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json(
-      { success: false, error: "Invalid JSON body" },
-      { status: 400 },
-    );
-  }
+  const body = await readJsonBody(request);
+  if (body === INVALID_JSON) return invalidJsonResponse();
 
   const parsed = resetPasswordSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Invalid reset details",
-        details: parsed.error.flatten().fieldErrors,
-      },
-      { status: 400 },
-    );
+    return validationErrorResponse(parsed.error, "Invalid reset details");
   }
 
   const limit = await checkRateLimit({

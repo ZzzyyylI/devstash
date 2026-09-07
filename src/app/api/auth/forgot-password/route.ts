@@ -10,6 +10,12 @@ import {
 } from "@/lib/tokens";
 import { sendPasswordResetEmail } from "@/lib/email";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import {
+  INVALID_JSON,
+  invalidJsonResponse,
+  readJsonBody,
+  validationErrorResponse,
+} from "@/lib/api/request";
 
 const TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -23,21 +29,15 @@ const TTL_MS = 24 * 60 * 60 * 1000;
  * per-email debounce stops the endpoint from being turned into a mail relay.
  */
 export async function POST(request: Request) {
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json(
-      { success: false, error: "Invalid JSON body" },
-      { status: 400 },
-    );
-  }
+  const body = await readJsonBody(request);
+  if (body === INVALID_JSON) return invalidJsonResponse();
 
   const parsed = forgotPasswordSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
-      { success: false, error: "Enter a valid email address" },
-      { status: 400 },
+    return validationErrorResponse(
+      parsed.error,
+      "Enter a valid email address",
+      false,
     );
   }
 

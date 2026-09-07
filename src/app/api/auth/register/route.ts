@@ -9,6 +9,12 @@ import { createVerificationToken } from "@/lib/tokens";
 import { sendVerificationEmail } from "@/lib/email";
 import { emailVerificationEnabled } from "@/lib/auth-flags";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import {
+  INVALID_JSON,
+  invalidJsonResponse,
+  readJsonBody,
+  validationErrorResponse,
+} from "@/lib/api/request";
 
 /**
  * POST /api/auth/register
@@ -20,26 +26,12 @@ import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
  * against the same hash on sign-in.
  */
 export async function POST(request: Request) {
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json(
-      { success: false, error: "Invalid JSON body" },
-      { status: 400 },
-    );
-  }
+  const body = await readJsonBody(request);
+  if (body === INVALID_JSON) return invalidJsonResponse();
 
   const parsed = registerSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Invalid registration details",
-        details: parsed.error.flatten().fieldErrors,
-      },
-      { status: 400 },
-    );
+    return validationErrorResponse(parsed.error, "Invalid registration details");
   }
 
   const limit = await checkRateLimit({
