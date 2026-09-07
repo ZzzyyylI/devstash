@@ -266,6 +266,21 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
   },
 ];
 
+/** Year DevStash first shipped — the fixed lower bound of the footer copyright range. */
+export const COPYRIGHT_START_YEAR = 2026;
+
+/**
+ * Footer copyright span: just the start year until the calendar moves past it,
+ * then `2026–<current>`. Kept as a helper so the rendered string is a pure
+ * function of `now` (testable, no bare `new Date()` scattered in the view).
+ */
+export function copyrightYears(now: Date = new Date()): string {
+  const year = now.getFullYear();
+  return year > COPYRIGHT_START_YEAR
+    ? `${COPYRIGHT_START_YEAR}–${year}`
+    : String(COPYRIGHT_START_YEAR);
+}
+
 /* ------------------------------------------------------------------ chaos field */
 
 /** Labels for the eight scattered-tool icons in the hero "chaos" panel. */

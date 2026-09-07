@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { FOOTER_COLUMNS } from "@/lib/home-content";
+import { FOOTER_COLUMNS, copyrightYears } from "@/lib/home-content";
 
 export function HomeFooter() {
   return (
@@ -40,7 +40,7 @@ export function HomeFooter() {
       </div>
 
       <p className="mt-12 border-t border-border pt-6 text-center text-sm text-muted-foreground">
-        © {new Date().getFullYear()} DevStash. All rights reserved.
+        © {copyrightYears()} DevStash. All rights reserved.
       </p>
     </footer>
   );
