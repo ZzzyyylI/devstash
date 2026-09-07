@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import type { ItemWithType } from "@/lib/db/items";
@@ -24,7 +24,7 @@ export function useItemDrawer() {
   const cache = useRef(new Map<string, ItemDetailJson>());
   const requestId = useRef(0);
 
-  const select = useCallback((item: ItemWithType) => {
+  function select(item: ItemWithType) {
     setSummary(item);
     setError(false);
     setOpen(true);
@@ -59,45 +59,39 @@ export function useItemDrawer() {
           setLoading(false);
         }
       });
-  }, []);
+  }
 
   // After an edit saves, refresh the drawer's own state from the returned
   // detail and re-run the server components so any card list reflects the change.
-  const handleSaved = useCallback(
-    (updated: ItemDetailJson) => {
-      cache.current.set(updated.id, updated);
-      setDetail(updated);
-      setSummary((prev) =>
-        prev && prev.id === updated.id
-          ? {
-              ...prev,
-              title: updated.title,
-              description: updated.description,
-              content: updated.content,
-              url: updated.url,
-              isFavorite: updated.isFavorite,
-              isPinned: updated.isPinned,
-              type: updated.type,
-              tags: updated.tags,
-              updatedAt: new Date(updated.updatedAt),
-            }
-          : prev,
-      );
-      router.refresh();
-    },
-    [router],
-  );
+  function handleSaved(updated: ItemDetailJson) {
+    cache.current.set(updated.id, updated);
+    setDetail(updated);
+    setSummary((prev) =>
+      prev && prev.id === updated.id
+        ? {
+            ...prev,
+            title: updated.title,
+            description: updated.description,
+            content: updated.content,
+            url: updated.url,
+            isFavorite: updated.isFavorite,
+            isPinned: updated.isPinned,
+            type: updated.type,
+            tags: updated.tags,
+            updatedAt: new Date(updated.updatedAt),
+          }
+        : prev,
+    );
+    router.refresh();
+  }
 
   // After a delete, close the drawer, drop the cached detail, and re-run the
   // server components so any card list loses the deleted item.
-  const handleDeleted = useCallback(
-    (id: string) => {
-      cache.current.delete(id);
-      setOpen(false);
-      router.refresh();
-    },
-    [router],
-  );
+  function handleDeleted(id: string) {
+    cache.current.delete(id);
+    setOpen(false);
+    router.refresh();
+  }
 
   return {
     open,
