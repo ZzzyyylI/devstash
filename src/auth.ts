@@ -1,6 +1,7 @@
 import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
+import type { Adapter, AdapterAccount } from "next-auth/adapters";
 
 import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/password";
@@ -33,6 +34,46 @@ import { emailVerificationEnabled } from "@/lib/auth-flags";
 class UnverifiedEmailError extends CredentialsSignin {
   code = "unverified_email";
 }
+/**
+ * Columns that actually exist on the `Account` model (see `prisma/schema.prisma`).
+ *
+ * Auth.js builds the account object by spreading the provider's raw token
+ * response, so it can carry fields we don't store — GitHub, for instance,
+ * returns `refresh_token_expires_in` when the OAuth app has expiring tokens
+ * enabled. `@auth/prisma-adapter` passes that object straight to
+ * `prisma.account.create`, so an unknown key makes Prisma throw and Auth.js
+ * surfaces it as a generic "Server error" on the OAuth callback. We narrow the
+ * object to these keys before it reaches Prisma.
+ */
+const ACCOUNT_COLUMNS = [
+  "userId",
+  "type",
+  "provider",
+  "providerAccountId",
+  "refresh_token",
+  "access_token",
+  "expires_at",
+  "token_type",
+  "scope",
+  "id_token",
+  "session_state",
+] as const satisfies readonly (keyof AdapterAccount)[];
+
+function pickAccountColumns(account: AdapterAccount): AdapterAccount {
+  const data = {} as Record<string, unknown>;
+  for (const key of ACCOUNT_COLUMNS) {
+    if (account[key] !== undefined) data[key] = account[key];
+  }
+  return data as AdapterAccount;
+}
+
+const prismaAdapter = PrismaAdapter(prisma);
+const adapter: Adapter = {
+  ...prismaAdapter,
+  linkAccount: (account) =>
+    prismaAdapter.linkAccount!(pickAccountColumns(account)),
+};
+
 const providers = authConfig.providers.map((provider) => {
   if (typeof provider === "function") return provider;
   if (provider.id !== "credentials") return provider;
@@ -70,7 +111,7 @@ const providers = authConfig.providers.map((provider) => {
 });
 
 export const { auth, handlers, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(prisma),
+  adapter,
   session: { strategy: "jwt" },
   callbacks: {
     // Persist the user id onto the token, then re-sync `isPro` from the DB on
