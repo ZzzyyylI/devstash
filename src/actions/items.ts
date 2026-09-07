@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import {
   createItem as createItemQuery,
   deleteItem as deleteItemQuery,
+  setItemFavorite as setItemFavoriteQuery,
   updateItem as updateItemQuery,
   type ItemDetail,
 } from "@/lib/db/items";
@@ -90,6 +91,43 @@ export async function updateItem(
   } catch (error) {
     console.error("updateItem action failed", error);
     return { success: false, error: "Something went wrong saving the item." };
+  }
+}
+
+/**
+ * Toggle an item's favorite flag from the drawer's action bar.
+ *
+ * Requires a signed-in session and delegates ownership + the write to
+ * `setItemFavorite` in `src/lib/db/items.ts` (demo-user scoped, like the rest of
+ * the data layer). Returns the fresh `ItemDetail` so the drawer reconciles
+ * without a second fetch. No Zod schema — the inputs are an id and a boolean.
+ */
+export async function setItemFavorite(
+  itemId: string,
+  isFavorite: boolean,
+): Promise<ActionResult<ItemDetail>> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, error: "You must be signed in to update items." };
+  }
+
+  if (typeof itemId !== "string" || itemId.length === 0) {
+    return { success: false, error: "Missing item id." };
+  }
+
+  if (typeof isFavorite !== "boolean") {
+    return { success: false, error: "Invalid favorite value." };
+  }
+
+  try {
+    const updated = await setItemFavoriteQuery(itemId, isFavorite);
+    if (!updated) {
+      return { success: false, error: "Item not found." };
+    }
+    return { success: true, data: updated };
+  } catch (error) {
+    console.error("setItemFavorite action failed", error);
+    return { success: false, error: "Something went wrong updating the item." };
   }
 }
 

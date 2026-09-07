@@ -343,6 +343,30 @@ export async function updateItem(
 }
 
 /**
+ * Toggle one of the demo user's items' favorite flag, then return its fresh
+ * {@link ItemDetail} so the drawer can reconcile without a second request.
+ *
+ * Scoped to the demo user like the rest of this file — the ownership check is
+ * folded into the `updateMany` `where`, so an unknown or foreign id writes
+ * nothing and returns `null` (the caller treats that as "not found").
+ */
+export async function setItemFavorite(
+  id: string,
+  isFavorite: boolean,
+): Promise<ItemDetail | null> {
+  const userId = await getDemoUserId();
+  if (!userId) return null;
+
+  const { count } = await prisma.item.updateMany({
+    where: { id, userId },
+    data: { isFavorite },
+  });
+  if (count === 0) return null;
+
+  return getItemDetail(id);
+}
+
+/**
  * Create an item for the demo user, then return its fresh {@link ItemDetail} so
  * the "New Item" dialog can report success without a second request.
  *

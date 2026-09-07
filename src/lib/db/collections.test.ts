@@ -25,6 +25,7 @@ const {
   getSearchCollections,
   getFavoriteCollections,
   updateCollection,
+  setCollectionFavorite,
   deleteCollection,
 } = await import("@/lib/db/collections");
 
@@ -313,6 +314,49 @@ describe("updateCollection", () => {
       name: "X",
       description: null,
     });
+
+    expect(result).toBeNull();
+    expect(collection.findFirst).not.toHaveBeenCalled();
+  });
+});
+
+describe("setCollectionFavorite", () => {
+  it("returns null and never writes when there is no demo user", async () => {
+    getDemoUserId.mockResolvedValue(null);
+
+    const result = await setCollectionFavorite("col_1", true);
+
+    expect(result).toBeNull();
+    expect(collection.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("updates the flag scoped to the demo user and returns the fresh row", async () => {
+    collection.updateMany.mockResolvedValue({ count: 1 });
+    const row = {
+      id: "col_1",
+      name: "React Patterns",
+      description: "notes",
+      isFavorite: true,
+    };
+    collection.findFirst.mockResolvedValue(row);
+
+    const result = await setCollectionFavorite("col_1", true);
+
+    expect(collection.updateMany).toHaveBeenCalledWith({
+      where: { id: "col_1", userId: "user_1" },
+      data: { isFavorite: true },
+    });
+    expect(collection.findFirst).toHaveBeenCalledWith({
+      where: { id: "col_1", userId: "user_1" },
+      select: { id: true, name: true, description: true, isFavorite: true },
+    });
+    expect(result).toBe(row);
+  });
+
+  it("returns null without re-reading when nothing matched (foreign id)", async () => {
+    collection.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await setCollectionFavorite("nope", false);
 
     expect(result).toBeNull();
     expect(collection.findFirst).not.toHaveBeenCalled();

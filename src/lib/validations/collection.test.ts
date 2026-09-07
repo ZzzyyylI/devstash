@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createCollectionSchema,
+  favoriteCollectionSchema,
   updateCollectionSchema,
 } from "@/lib/validations/collection";
 
@@ -55,5 +56,26 @@ describe("updateCollectionSchema", () => {
 
     const result = updateCollectionSchema.safeParse({ name: "  " });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("favoriteCollectionSchema", () => {
+  it("accepts a boolean isFavorite", () => {
+    expect(favoriteCollectionSchema.parse({ isFavorite: true })).toEqual({
+      isFavorite: true,
+    });
+    expect(favoriteCollectionSchema.parse({ isFavorite: false })).toEqual({
+      isFavorite: false,
+    });
+  });
+
+  it("rejects a missing or non-boolean isFavorite (the route's 400 path)", () => {
+    expect(favoriteCollectionSchema.safeParse({}).success).toBe(false);
+    expect(
+      favoriteCollectionSchema.safeParse({ isFavorite: "true" }).success,
+    ).toBe(false);
+    expect(
+      favoriteCollectionSchema.safeParse({ isFavorite: 1 }).success,
+    ).toBe(false);
   });
 });
