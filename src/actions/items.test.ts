@@ -8,13 +8,17 @@ vi.mock("@/auth", () => ({ auth }));
 const createItemQuery = vi.fn();
 const updateItemQuery = vi.fn();
 const deleteItemQuery = vi.fn();
+const setItemFavoriteQuery = vi.fn();
 vi.mock("@/lib/db/items", () => ({
   createItem: createItemQuery,
   updateItem: updateItemQuery,
   deleteItem: deleteItemQuery,
+  setItemFavorite: setItemFavoriteQuery,
 }));
 
-const { createItem, updateItem, deleteItem } = await import("@/actions/items");
+const { createItem, updateItem, deleteItem, setItemFavorite } = await import(
+  "@/actions/items"
+);
 
 const validInput = {
   title: "Updated title",
@@ -31,6 +35,7 @@ beforeEach(() => {
   createItemQuery.mockReset();
   updateItemQuery.mockReset();
   deleteItemQuery.mockReset();
+  setItemFavoriteQuery.mockReset();
   auth.mockResolvedValue({ user: { id: "user_1" } });
 });
 
@@ -239,6 +244,71 @@ describe("updateItem action", () => {
     expect(result).toEqual({
       success: false,
       error: "Something went wrong saving the item.",
+    });
+    consoleError.mockRestore();
+  });
+});
+
+describe("setItemFavorite action", () => {
+  it("rejects an unauthenticated caller without touching the database", async () => {
+    auth.mockResolvedValue(null);
+
+    const result = await setItemFavorite("item_1", true);
+
+    expect(result).toEqual({
+      success: false,
+      error: "You must be signed in to update items.",
+    });
+    expect(setItemFavoriteQuery).not.toHaveBeenCalled();
+  });
+
+  it("rejects a missing item id", async () => {
+    const result = await setItemFavorite("", true);
+
+    expect(result).toEqual({ success: false, error: "Missing item id." });
+    expect(setItemFavoriteQuery).not.toHaveBeenCalled();
+  });
+
+  it("rejects a non-boolean favorite value", async () => {
+    const result = await setItemFavorite(
+      "item_1",
+      "yes" as unknown as boolean,
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: "Invalid favorite value.",
+    });
+    expect(setItemFavoriteQuery).not.toHaveBeenCalled();
+  });
+
+  it("toggles the flag and returns the fresh detail", async () => {
+    const detail = { id: "item_1", isFavorite: true };
+    setItemFavoriteQuery.mockResolvedValue(detail);
+
+    const result = await setItemFavorite("item_1", true);
+
+    expect(setItemFavoriteQuery).toHaveBeenCalledWith("item_1", true);
+    expect(result).toEqual({ success: true, data: detail });
+  });
+
+  it("maps a null query result (not the demo user's item) to a not-found error", async () => {
+    setItemFavoriteQuery.mockResolvedValue(null);
+
+    const result = await setItemFavorite("item_1", false);
+
+    expect(result).toEqual({ success: false, error: "Item not found." });
+  });
+
+  it("returns a generic error when the query throws", async () => {
+    setItemFavoriteQuery.mockRejectedValue(new Error("db down"));
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await setItemFavorite("item_1", true);
+
+    expect(result).toEqual({
+      success: false,
+      error: "Something went wrong updating the item.",
     });
     consoleError.mockRestore();
   });

@@ -310,6 +310,31 @@ export async function updateCollection(
 }
 
 /**
+ * Toggle a collection's favorite flag from the card menu or the detail-page
+ * header. User-scoped via `getDemoUserId()`; the ownership check is folded into
+ * the `updateMany` `where`, so an unknown or foreign id updates nothing and
+ * returns `null`. On success returns the fresh row.
+ */
+export async function setCollectionFavorite(
+  id: string,
+  isFavorite: boolean,
+): Promise<CollectionSummary | null> {
+  const userId = await getDemoUserId();
+  if (!userId) return null;
+
+  const { count } = await prisma.collection.updateMany({
+    where: { id, userId },
+    data: { isFavorite },
+  });
+  if (count === 0) return null;
+
+  return prisma.collection.findFirst({
+    where: { id, userId },
+    select: { id: true, name: true, description: true, isFavorite: true },
+  });
+}
+
+/**
  * Delete a collection. User-scoped via `getDemoUserId()`, with the ownership
  * check in the `deleteMany` `where`. The collection's items are **not** deleted
  * — only the `CollectionItem` join rows, which cascade away. Returns `false` for

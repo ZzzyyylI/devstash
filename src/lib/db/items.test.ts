@@ -5,6 +5,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // too — items.ts imports it for the file-delete path, unused here.
 const item = {
   findMany: vi.fn(),
+  findFirst: vi.fn(),
+  updateMany: vi.fn(),
   count: vi.fn(),
 };
 vi.mock("@/lib/prisma", () => ({
@@ -19,11 +21,18 @@ vi.mock("@/lib/r2", () => ({
   toObjectKey: vi.fn((v: string) => v),
 }));
 
-const { getItemsByType, getItemsByCollection, getAllItems, getFavoriteItems } =
-  await import("@/lib/db/items");
+const {
+  getItemsByType,
+  getItemsByCollection,
+  getAllItems,
+  getFavoriteItems,
+  setItemFavorite,
+} = await import("@/lib/db/items");
 
 beforeEach(() => {
   item.findMany.mockReset();
+  item.findFirst.mockReset();
+  item.updateMany.mockReset();
   item.count.mockReset();
   item.count.mockResolvedValue(0);
   getDemoUserId.mockReset();
@@ -172,6 +181,43 @@ describe("getAllItems", () => {
     });
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({ id: "item_1", tags: ["react", "hooks"] });
+  });
+});
+
+describe("setItemFavorite", () => {
+  it("returns null and never writes when there is no demo user", async () => {
+    getDemoUserId.mockResolvedValue(null);
+
+    const result = await setItemFavorite("item_1", true);
+
+    expect(result).toBeNull();
+    expect(item.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("updates the flag scoped to the demo user and returns the fresh detail", async () => {
+    item.updateMany.mockResolvedValue({ count: 1 });
+    item.findFirst.mockResolvedValue({
+      ...itemRecord(),
+      isFavorite: true,
+      collections: [],
+    });
+
+    const result = await setItemFavorite("item_1", true);
+
+    expect(item.updateMany).toHaveBeenCalledWith({
+      where: { id: "item_1", userId: "user_1" },
+      data: { isFavorite: true },
+    });
+    expect(result).toMatchObject({ id: "item_1", isFavorite: true });
+  });
+
+  it("returns null without re-reading when nothing matched (foreign id)", async () => {
+    item.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await setItemFavorite("nope", true);
+
+    expect(result).toBeNull();
+    expect(item.findFirst).not.toHaveBeenCalled();
   });
 });
 

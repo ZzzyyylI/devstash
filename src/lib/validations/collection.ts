@@ -33,3 +33,15 @@ export const updateCollectionSchema = createCollectionSchema;
 
 /** Validated + normalised update payload. */
 export type UpdateCollectionInput = z.infer<typeof updateCollectionSchema>;
+
+/**
+ * The favorite-toggle payload (`PATCH /api/collections/[id]/favorite`). Just the
+ * flag — a separate schema so the shared `updateCollectionSchema` (which requires
+ * a `name`) doesn't have to be widened to accommodate a partial update.
+ */
+export const favoriteCollectionSchema = z.object({
+  isFavorite: z.boolean(),
+});
+
+/** Validated favorite-toggle payload. */
+export type FavoriteCollectionInput = z.infer<typeof favoriteCollectionSchema>;

@@ -17,6 +17,7 @@ import {
   type EditableCollection,
 } from "@/components/collections/EditCollectionDialog";
 import { DeleteCollectionDialog } from "@/components/collections/DeleteCollectionDialog";
+import { useCollectionFavorite } from "@/components/collections/use-collection-favorite";
 
 interface CollectionActionsMenuProps {
   collection: EditableCollection;
@@ -29,7 +30,7 @@ interface CollectionActionsMenuProps {
  * a `pointer-events-auto` sibling of the card's stretched `<Link>` overlay, so
  * opening the menu doesn't navigate. Delete just refreshes the route (the card
  * disappears from the server-rendered list); the detail page has its own
- * navigation. Favorite is a placeholder — no behaviour yet.
+ * navigation. Favorite toggles `isFavorite` via a shared hook, then refreshes.
  */
 export function CollectionActionsMenu({
   collection,
@@ -38,6 +39,7 @@ export function CollectionActionsMenu({
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const favorite = useCollectionFavorite(collection);
 
   return (
     <>
@@ -56,9 +58,17 @@ export function CollectionActionsMenu({
             <Pencil />
             Edit
           </DropdownMenuItem>
-          <DropdownMenuItem>
-            <Star />
-            Favorite
+          <DropdownMenuItem
+            onSelect={() => {
+              void favorite.toggle();
+            }}
+          >
+            <Star
+              className={cn(
+                favorite.isFavorite && "fill-amber-400 text-amber-400",
+              )}
+            />
+            {favorite.isFavorite ? "Unfavorite" : "Favorite"}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem destructive onSelect={() => setDeleteOpen(true)}>

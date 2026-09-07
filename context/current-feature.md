@@ -1,18 +1,35 @@
-# Current Feature
-
-_None — ready for the next feature._
+# Current Feature: Favorite Toggle — Drawer, Collection Page & Cards
 
 ## Status
 
-Completed
+In Progress
 
 ## Goals
 
-_None._
+Make the favorite control actually toggle `isFavorite` in the three places it currently renders as an inert placeholder:
+
+1. **Item drawer** — the `Star` `ActionButton` in [ItemDrawer.tsx:150](src/components/items/ItemDrawer.tsx#L150) (no `onClick` today).
+2. **Collection detail header** (`/collections/[id]`) — the "Favorite collection" button in [CollectionDetailActions.tsx:33](src/components/collections/CollectionDetailActions.tsx#L33) (no `onClick`).
+3. **Collection card menu** — the "Favorite" `DropdownMenuItem` in [CollectionActionsMenu.tsx:59](src/components/collections/CollectionActionsMenu.tsx#L59), on both the dashboard and `/collections` (no `onSelect`).
+
+After a toggle, `router.refresh()` re-runs the `force-dynamic` server components so the sidebar Favorites group, `/favorites`, the dashboard favorite stat cards and the star states all follow — including dropping a row from any list that only shows favorites. This closes the collection-favorite deferral open since "Collection Edit / Delete".
 
 ## Notes
 
-_None._
+**Items** (use Server Actions, like `updateItem` / `deleteItem`):
+- `setItemFavorite(id, isFavorite)` in `src/lib/db/items.ts` — demo-user-scoped `updateMany`, `count === 0` → `null`, else return the fresh `ItemDetail` so the drawer reconciles without a second fetch.
+- `setItemFavorite` action in `src/actions/items.ts` — `auth()` + id guard → query → `{ success, data | error }`. No Zod schema (id + boolean).
+- Drawer Star button calls it, reuses `useItemDrawer`'s `handleSaved` path (already folds `isFavorite` into `summary` + `router.refresh()`); `pending` state to disable mid-flight, optional optimistic toggle with rollback + `toast.error`.
+
+**Collections** (kept as API routes — the deliberate divergence, don't change it):
+- `setCollectionFavorite(id, isFavorite)` in `src/lib/db/collections.ts` — `updateMany` → re-read `CollectionSummary`, `count === 0` → `null`.
+- `favoriteCollectionSchema = z.object({ isFavorite: z.boolean() })` — new, don't widen the shared `updateCollectionSchema` (aliased to create, requires `name`).
+- New `PATCH /api/collections/[id]/favorite/route.ts` — same auth + `readJsonBody` + `validationErrorResponse` + `{ success, error }` shape as the sibling `[id]` route; `null` → 404.
+- Both collection spots go through one shared `useCollectionFavorite(collection)` hook / `<CollectionFavoriteButton>` — `postJson(url, { isFavorite }, "PATCH")` → `toast` + `router.refresh()`. `EditableCollection` already carries `isFavorite`.
+
+**Decide before `start`:** "the cards" is taken as the collection card menu; `ItemCard` has no action affordance and items toggle via the drawer — confirm, or add a hover star to `ItemCard` too. Drawer Pin button stays inert (favorites only).
+
+**Verify:** unit tests for `setItemFavorite` (db + action), `setCollectionFavorite` (db), `favoriteCollectionSchema`; `npm run test` / `lint` / `build`; browser round-trip of all three spots against live Neon.
 
 ## History
 

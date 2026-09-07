@@ -16,7 +16,7 @@ import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import type { ItemWithType } from "@/lib/db/items";
-import { deleteItem } from "@/actions/items";
+import { deleteItem, setItemFavorite } from "@/actions/items";
 import { isCodeItemType, isMarkdownItemType } from "@/lib/validations/item";
 import { FALLBACK_ICON, palette, TYPE_ICON } from "@/lib/type-presentation";
 import { CodeEditor } from "@/components/items/CodeEditor";
@@ -80,6 +80,10 @@ export function ItemDrawer({
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [favoritePending, setFavoritePending] = useState(false);
+  // Optimistic favorite state while the toggle is in flight (`null` = show the
+  // real value). Cleared once the fresh detail lands via `onSaved`.
+  const [favoriteOverride, setFavoriteOverride] = useState<boolean | null>(null);
 
   // Leave edit mode / dismiss the delete prompt whenever the drawer closes or a
   // different item is opened. (Render-phase reset per the React "adjusting state
@@ -91,6 +95,31 @@ export function ItemDrawer({
     setEditing(false);
     setConfirmingDelete(false);
     setDeleting(false);
+    setFavoritePending(false);
+    setFavoriteOverride(null);
+  }
+
+  async function handleToggleFavorite() {
+    if (!summary || !detail || favoritePending) return;
+
+    const next = !detail.isFavorite;
+    setFavoritePending(true);
+    setFavoriteOverride(next);
+    const result = await setItemFavorite(summary.id, next);
+    setFavoritePending(false);
+
+    if (!result.success) {
+      setFavoriteOverride(null);
+      toast.error(result.error);
+      return;
+    }
+
+    onSaved({
+      ...result.data,
+      createdAt: new Date(result.data.createdAt).toISOString(),
+      updatedAt: new Date(result.data.updatedAt).toISOString(),
+    });
+    setFavoriteOverride(null);
   }
 
   async function handleDelete() {
@@ -113,6 +142,8 @@ export function ItemDrawer({
   const typeId = summary?.type.id;
   const Icon = (typeId && TYPE_ICON[typeId]) || FALLBACK_ICON;
   const accent = palette(summary?.type.color ?? null);
+  const isFavorite =
+    favoriteOverride ?? detail?.isFavorite ?? summary?.isFavorite ?? false;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -150,8 +181,10 @@ export function ItemDrawer({
                   <ActionButton
                     icon={Star}
                     label="Favorite"
-                    active={summary.isFavorite}
+                    active={isFavorite}
                     activeIconClass="fill-amber-400 text-amber-400"
+                    disabled={!detail || favoritePending}
+                    onClick={() => void handleToggleFavorite()}
                   />
                   <ActionButton icon={Pin} label="Pin" active={summary.isPinned} />
                   <ActionButton
