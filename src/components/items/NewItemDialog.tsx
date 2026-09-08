@@ -19,6 +19,7 @@ import { textareaClass } from "@/components/items/item-form/field-styles";
 import { ItemContentField } from "@/components/items/item-form/ItemContentField";
 import { LanguageSelect } from "@/components/items/item-form/LanguageSelect";
 import { CollectionPicker } from "@/components/items/item-form/CollectionPicker";
+import { SuggestTagsButton } from "@/components/items/item-form/SuggestTagsButton";
 import {
   Dialog,
   DialogContent,
@@ -290,6 +291,20 @@ export function NewItemDialog({
               value={form.tagsInput}
               onChange={(event) => set("tagsInput", event.target.value)}
               placeholder="react, hooks, patterns"
+            />
+            <SuggestTagsButton
+              isPro={isPro}
+              title={form.title}
+              content={showContent ? form.content : null}
+              existingTags={parseTagsInput(form.tagsInput)}
+              onAccept={(tag) =>
+                setForm((prev) => ({
+                  ...prev,
+                  tagsInput: prev.tagsInput.trim()
+                    ? `${prev.tagsInput.replace(/,\s*$/, "")}, ${tag}`
+                    : tag,
+                }))
+              }
             />
           </Field>
 

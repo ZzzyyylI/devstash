@@ -25,6 +25,8 @@ interface ItemBrowserProps {
    * file type page); `list` renders `ItemRow`s (dashboard).
    */
   layout: "grid" | "gallery" | "files" | "list";
+  /** Whether the signed-in user is on Pro — gates the drawer's "Suggest tags". */
+  isPro: boolean;
 }
 
 /**
@@ -32,7 +34,7 @@ interface ItemBrowserProps {
  * triggers. Card data is passed straight into the drawer; full detail is
  * fetched from `/api/items/[id]` on click and cached for re-opens.
  */
-export function ItemBrowser({ items, layout }: ItemBrowserProps) {
+export function ItemBrowser({ items, layout, isPro }: ItemBrowserProps) {
   const {
     open,
     setOpen,
@@ -116,6 +118,7 @@ export function ItemBrowser({ items, layout }: ItemBrowserProps) {
         detail={detail}
         loading={loading}
         error={error}
+        isPro={isPro}
         onSaved={handleSaved}
         onDeleted={handleDeleted}
       />

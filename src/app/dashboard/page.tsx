@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Clock, Pin } from "lucide-react";
 
+import { auth } from "@/auth";
 import { getPinnedItems, getRecentItems } from "@/lib/db/items";
 import { DASHBOARD_RECENT_ITEMS_LIMIT } from "@/lib/pagination";
 import { StatsSection } from "@/components/dashboard/StatsSection";
@@ -15,10 +16,12 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const [pinnedItems, recentItems] = await Promise.all([
+  const [session, pinnedItems, recentItems] = await Promise.all([
+    auth(),
     getPinnedItems(),
     getRecentItems(DASHBOARD_RECENT_ITEMS_LIMIT),
   ]);
+  const isPro = Boolean(session?.user?.isPro);
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-8">
@@ -31,8 +34,18 @@ export default async function DashboardPage() {
 
       <StatsSection />
       <CollectionsSection />
-      <ItemsSection title="Pinned" icon={Pin} items={pinnedItems} />
-      <ItemsSection title="Recent" icon={Clock} items={recentItems} />
+      <ItemsSection
+        title="Pinned"
+        icon={Pin}
+        items={pinnedItems}
+        isPro={isPro}
+      />
+      <ItemsSection
+        title="Recent"
+        icon={Clock}
+        items={recentItems}
+        isPro={isPro}
+      />
     </div>
   );
 }

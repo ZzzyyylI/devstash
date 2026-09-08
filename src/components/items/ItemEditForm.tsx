@@ -12,6 +12,7 @@ import { textareaClass } from "@/components/items/item-form/field-styles";
 import { ItemContentField } from "@/components/items/item-form/ItemContentField";
 import { LanguageSelect } from "@/components/items/item-form/LanguageSelect";
 import { CollectionPicker } from "@/components/items/item-form/CollectionPicker";
+import { SuggestTagsButton } from "@/components/items/item-form/SuggestTagsButton";
 
 /**
  * Inline edit form for the item drawer — replaces the action bar (with
@@ -22,10 +23,13 @@ import { CollectionPicker } from "@/components/items/item-form/CollectionPicker"
  */
 export function ItemEditForm({
   detail,
+  isPro,
   onCancel,
   onSaved,
 }: {
   detail: ItemDetailJson;
+  /** Gates the Pro-only "Suggest tags" control. */
+  isPro: boolean;
   onCancel: () => void;
   onSaved: (updated: ItemDetailJson) => void;
 }) {
@@ -154,6 +158,19 @@ export function ItemEditForm({
             value={tagsInput}
             onChange={(event) => setTagsInput(event.target.value)}
             placeholder="react, hooks, patterns"
+          />
+          <SuggestTagsButton
+            isPro={isPro}
+            title={title}
+            content={showContent ? content : null}
+            existingTags={parseTagsInput(tagsInput)}
+            onAccept={(tag) =>
+              setTagsInput((prev) =>
+                prev.trim()
+                  ? `${prev.replace(/,\s*$/, "")}, ${tag}`
+                  : tag,
+              )
+            }
           />
         </Field>
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Star } from "lucide-react";
 
+import { auth } from "@/auth";
 import { getCollectionById } from "@/lib/db/collections";
 import { getItemsByCollection } from "@/lib/db/items";
 import { parsePageParam } from "@/lib/pagination";
@@ -24,9 +25,10 @@ export default async function CollectionDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ page?: string | string[] }>;
 }) {
-  const [{ id }, { page: pageParam }] = await Promise.all([
+  const [{ id }, { page: pageParam }, session] = await Promise.all([
     params,
     searchParams,
+    auth(),
   ]);
   const collection = await getCollectionById(id);
 
@@ -74,7 +76,11 @@ export default async function CollectionDetailPage({
         </p>
       ) : (
         <div className="mt-6">
-          <ItemBrowser items={items} layout="grid" />
+          <ItemBrowser
+            items={items}
+            layout="grid"
+            isPro={Boolean(session?.user?.isPro)}
+          />
           <Pagination
             page={page}
             pageCount={pageCount}

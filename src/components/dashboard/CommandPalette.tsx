@@ -32,6 +32,8 @@ interface CommandPaletteProps {
   items: ItemWithType[];
   /** The full collection dataset, pre-fetched by the dashboard layout. */
   collections: SearchCollection[];
+  /** Whether the signed-in user is on Pro — gates the drawer's "Suggest tags". */
+  isPro: boolean;
 }
 
 /**
@@ -44,6 +46,7 @@ export function CommandPalette({
   onOpenChange,
   items,
   collections,
+  isPro,
 }: CommandPaletteProps) {
   const router = useRouter();
   const drawer = useItemDrawer();
@@ -125,6 +128,7 @@ export function CommandPalette({
         detail={drawer.detail}
         loading={drawer.loading}
         error={drawer.error}
+        isPro={isPro}
         onSaved={drawer.handleSaved}
         onDeleted={drawer.handleDeleted}
       />

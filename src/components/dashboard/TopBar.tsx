@@ -159,6 +159,7 @@ export function TopBar({
         onOpenChange={setPaletteOpen}
         items={searchItems}
         collections={searchCollections}
+        isPro={isPro}
       />
       <NewItemDialog
         open={newItemOpen}

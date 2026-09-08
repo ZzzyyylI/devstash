@@ -123,12 +123,58 @@ export async function checkRateLimit({
   }
 }
 
+/**
+ * Sliding-window limit for the AI features (auto-tagging, …) — 20 calls per
+ * signed-in user per hour. A backstop against a runaway client burning the
+ * OpenAI budget; the Pro gate is the primary control.
+ */
+export const AI_RATE_LIMIT = { limit: 20, window: "1 h" } as const satisfies {
+  limit: number;
+  window: Duration;
+};
+
+export interface CheckUserRateLimitArgs {
+  /** Bucket namespace, e.g. `"ai:auto-tags"`. */
+  name: string;
+  /** The signed-in user's id — server actions have no `Request` to key on IP. */
+  userId: string;
+  limit: number;
+  window: Duration;
+}
+
+/**
+ * Consume one slot from the `name` bucket for a specific user. Like
+ * {@link checkRateLimit} but keyed on a user id rather than the request IP, for
+ * callers with no `Request` object (Server Actions). Never throws — fails open.
+ */
+export async function checkUserRateLimit({
+  name,
+  userId,
+  limit,
+  window,
+}: CheckUserRateLimitArgs): Promise<RateLimitResult> {
+  const limiter = getLimiter(name, limit, window);
+  if (!limiter) return { success: true, remaining: limit, reset: 0 };
+
+  try {
+    const { success, remaining, reset } = await limiter.limit(`user:${userId}`);
+    return { success, remaining, reset };
+  } catch (error) {
+    console.error(
+      `[rate-limit] check failed for "${name}" — allowing request:`,
+      error,
+    );
+    return { success: true, remaining: limit, reset: 0 };
+  }
+}
+
 /** Whole minutes until `reset`, floored at 1. */
 function minutesUntil(reset: number): number {
   return Math.max(1, Math.ceil((reset - Date.now()) / 60_000));
 }
 
-function tooManyAttemptsMessage(reset: number): string {
+/** User-facing "slow down" copy — exported for Server Actions that can't send a 429. */
+export function tooManyAttemptsMessage(reset: number): string {
   const minutes = minutesUntil(reset);
   return `Too many attempts. Please try again in ${minutes} ${
     minutes === 1 ? "minute" : "minutes"
