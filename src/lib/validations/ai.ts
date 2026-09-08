@@ -42,3 +42,19 @@ export const describeItemSchema = z.object({
 
 /** Validated + normalised describe-item payload. */
 export type DescribeItemInput = z.infer<typeof describeItemSchema>;
+
+/**
+ * `explainCode` payload. `title` + `content` are required (Explain only appears
+ * once an item has code to explain); `language` / `type` are whatever the item
+ * happens to carry and collapse to null when blank. `content` is truncated
+ * server-side before the API call.
+ */
+export const explainCodeSchema = z.object({
+  title: z.string().trim().min(1, "Add a title first").max(200),
+  content: z.string().trim().min(1, "There's no code to explain"),
+  language: optionalText,
+  type: optionalText,
+});
+
+/** Validated + normalised explain-code payload. */
+export type ExplainCodeInput = z.infer<typeof explainCodeSchema>;
