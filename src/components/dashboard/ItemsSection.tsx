@@ -7,10 +7,17 @@ interface ItemsSectionProps {
   title: string;
   icon: LucideIcon;
   items: ItemWithType[];
+  /** Whether the signed-in user is on Pro — gates the drawer's "Suggest tags". */
+  isPro: boolean;
 }
 
 /** A titled list of item rows (used for both Pinned and Recent). */
-export function ItemsSection({ title, icon: Icon, items }: ItemsSectionProps) {
+export function ItemsSection({
+  title,
+  icon: Icon,
+  items,
+  isPro,
+}: ItemsSectionProps) {
   if (items.length === 0) return null;
 
   return (
@@ -20,7 +27,7 @@ export function ItemsSection({ title, icon: Icon, items }: ItemsSectionProps) {
         <h2 className="text-lg font-semibold">{title}</h2>
       </div>
       <div className="mt-4">
-        <ItemBrowser items={items} layout="list" />
+        <ItemBrowser items={items} layout="list" isPro={isPro} />
       </div>
     </section>
   );

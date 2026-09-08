@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, Star } from "lucide-react";
 
+import { auth } from "@/auth";
 import { getFavoriteItems } from "@/lib/db/items";
 import { getFavoriteCollections } from "@/lib/db/collections";
 import { FavoritesList } from "@/components/favorites/FavoritesList";
@@ -14,7 +15,8 @@ export const metadata = {
 
 /** All of the demo user's favorited items and collections, in a compact list. */
 export default async function FavoritesPage() {
-  const [items, collections] = await Promise.all([
+  const [session, items, collections] = await Promise.all([
+    auth(),
     getFavoriteItems(),
     getFavoriteCollections(),
   ]);
@@ -38,7 +40,11 @@ export default async function FavoritesPage() {
         {collections.length === 1 ? "collection" : "collections"}
       </p>
 
-      <FavoritesList items={items} collections={collections} />
+      <FavoritesList
+        items={items}
+        collections={collections}
+        isPro={Boolean(session?.user?.isPro)}
+      />
     </div>
   );
 }

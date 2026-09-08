@@ -55,6 +55,8 @@ interface ItemDrawerProps {
   detail: ItemDetailJson | null;
   loading: boolean;
   error: boolean;
+  /** Gates the Pro-only "Suggest tags" control in edit mode. */
+  isPro: boolean;
   /** Called with the fresh detail after an edit saves. */
   onSaved: (updated: ItemDetailJson) => void;
   /** Called with the item id after it's deleted. */
@@ -74,6 +76,7 @@ export function ItemDrawer({
   detail,
   loading,
   error,
+  isPro,
   onSaved,
   onDeleted,
 }: ItemDrawerProps) {
@@ -88,9 +91,22 @@ export function ItemDrawer({
   // Leave edit mode / dismiss the delete prompt whenever the drawer closes or a
   // different item is opened. (Render-phase reset per the React "adjusting state
   // on prop change" pattern.)
+  //
+  // The key flips to `null` while the drawer is closed, so switching items
+  // always resets. The extra `!open` clause is a belt-and-braces guard: if a
+  // batched close+reopen ever skips the intermediate closed render, a stale
+  // `confirmingDelete` (or `editing`) would otherwise carry into the next item —
+  // the reported "delete prompt opens for the next card" symptom.
   const openItemKey = open ? (summary?.id ?? null) : null;
   const [lastOpenItemKey, setLastOpenItemKey] = useState(openItemKey);
-  if (openItemKey !== lastOpenItemKey) {
+  const staleTransientState =
+    !open &&
+    (editing ||
+      confirmingDelete ||
+      deleting ||
+      favoritePending ||
+      favoriteOverride !== null);
+  if (openItemKey !== lastOpenItemKey || staleTransientState) {
     setLastOpenItemKey(openItemKey);
     setEditing(false);
     setConfirmingDelete(false);
@@ -249,6 +265,7 @@ export function ItemDrawer({
             {editing && detail ? (
               <ItemEditForm
                 detail={detail}
+                isPro={isPro}
                 onCancel={() => setEditing(false)}
                 onSaved={(updated) => {
                   setEditing(false);

@@ -85,11 +85,14 @@ export function useItemDrawer() {
     router.refresh();
   }
 
-  // After a delete, close the drawer, drop the cached detail, and re-run the
+  // After a delete, close the drawer, drop the cached + in-memory item so no
+  // stale reference can bleed into the next item the user opens, and re-run the
   // server components so any card list loses the deleted item.
   function handleDeleted(id: string) {
     cache.current.delete(id);
     setOpen(false);
+    setSummary(null);
+    setDetail(null);
     router.refresh();
   }
 

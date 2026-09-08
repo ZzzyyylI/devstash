@@ -1,18 +1,35 @@
-# Current Feature
-
-_None — ready for the next feature._
+# Current Feature: AI Auto-Tagging
 
 ## Status
 
-Completed
+In Progress
 
 ## Goals
 
-_None._
+- Establish the OpenAI foundation (first AI feature): client utility with an `AI_MODEL` constant using the standard `openai` SDK, kept simple
+- Add an AI rate limit config (20 requests/hour per user) to the existing `src/lib/rate-limit.ts` utility
+- Create a `generateAutoTags` server action with auth check, Pro gating, Zod validation, and rate limiting
+- Use the OpenAI **Responses API** (`client.responses.create`), NOT Chat Completions — gpt-5-nano returns empty content on Chat Completions
+- Request `text: { format: { type: 'json_object' } }`, read `response.output_text`, parse manually; handle both `{"tags": [...]}` and `[...]` response shapes; normalize tags to lowercase
+- Truncate item content to 2000 chars before the API call; base suggestions on title + content
+- Add a "Suggest Tags" button (Sparkles icon, ghost variant) near the tags input in both the create item dialog and the item drawer edit mode
+- Return 3-5 freeform tag suggestions (not limited to existing DB tags), rendered as badges with per-tag accept (check) / reject (X) controls; accepted tags append to the item's tag list
+- Pro-only: hide the button for free users (UI gating via an `isPro` prop / client fetch) AND enforce server-side in the action
+- Error handling via `sonner` toast for Pro gating, rate limit, and AI service errors
+- Follow existing patterns (server action shape, rate-limit helpers, validation module layout)
+- Unit tests for the `generateAutoTags` server action
 
 ## Notes
 
-_None._
+- First AI feature — no OpenAI client, no AI rate-limit config exists yet; this feature creates them
+- Model: `gpt-5-nano` via `AI_MODEL` constant; `OPENAI_API_KEY` already in `.env`
+- `openai` npm v6+ has two APIs — must use Responses API. `zodResponseFormat` structured output blows the token budget with this model; use `json_object` + manual parse
+- **Gotcha (fixed):** with `text.format: json_object` the Responses API 400s unless the literal word "json" appears in the `input` itself (not just `instructions`) — `auto-tags.ts` appends `Return the tags as a JSON object…` to the input
+- **Also fixed (adjacent, user-reported):** stale `confirmingDelete` could carry into the next item opened after a delete — `ItemDrawer` now also resets transient state while `!open`, and `useItemDrawer.handleDeleted` clears `summary`/`detail`
+- `max_tokens` is unsupported by gpt-5-nano
+- `isPro` is available server-side via session but is not currently passed to the create/edit UI components — UI gating requires threading `isPro` as a prop or fetching it client-side (server-side gating is the enforcement)
+- Full architectural context: `docs/ai-integration-plan.md`
+- Spec: `context/features/ai-auto-tag-spec.md`
 
 ## History
 

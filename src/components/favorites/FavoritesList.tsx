@@ -23,6 +23,8 @@ import { useItemDrawer } from "@/components/items/use-item-drawer";
 interface FavoritesListProps {
   items: ItemWithType[];
   collections: FavoriteCollection[];
+  /** Whether the signed-in user is on Pro — gates the drawer's "Suggest tags". */
+  isPro: boolean;
 }
 
 /**
@@ -30,7 +32,11 @@ interface FavoritesListProps {
  * each sorted most-recently-favorited first. Item rows open the shared
  * `ItemDrawer`; collection rows navigate to the collection detail page.
  */
-export function FavoritesList({ items, collections }: FavoritesListProps) {
+export function FavoritesList({
+  items,
+  collections,
+  isPro,
+}: FavoritesListProps) {
   const router = useRouter();
   const drawer = useItemDrawer();
   const [sort, setSort] = useState(DEFAULT_FAVORITE_SORT);
@@ -137,6 +143,7 @@ export function FavoritesList({ items, collections }: FavoritesListProps) {
         detail={drawer.detail}
         loading={drawer.loading}
         error={drawer.error}
+        isPro={isPro}
         onSaved={drawer.handleSaved}
         onDeleted={drawer.handleDeleted}
       />

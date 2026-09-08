@@ -81,7 +81,11 @@ export default async function ItemsByTypePage({
         </p>
       ) : (
         <div className="mt-6">
-          <ItemBrowser items={items} layout={layout} />
+          <ItemBrowser
+            items={items}
+            layout={layout}
+            isPro={Boolean(session?.user?.isPro)}
+          />
           <Pagination
             page={page}
             pageCount={pageCount}
