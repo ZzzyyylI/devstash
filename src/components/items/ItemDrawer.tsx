@@ -16,7 +16,7 @@ import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import type { ItemWithType } from "@/lib/db/items";
-import { deleteItem, setItemFavorite } from "@/actions/items";
+import { deleteItem, setItemFavorite, updateItem } from "@/actions/items";
 import { isCodeItemType, isMarkdownItemType } from "@/lib/validations/item";
 import { FALLBACK_ICON, palette, TYPE_ICON } from "@/lib/type-presentation";
 import { CodeEditor } from "@/components/items/CodeEditor";
@@ -136,6 +136,37 @@ export function ItemDrawer({
       updatedAt: new Date(result.data.updatedAt).toISOString(),
     });
     setFavoriteOverride(null);
+  }
+
+  // Persist an accepted prompt optimization through the normal update path. The
+  // suggestion only replaces `content` — every other field is echoed back from
+  // the loaded detail so nothing else changes. Returns true so the editor can
+  // close its suggestion panel.
+  async function handleApplyOptimizedPrompt(optimized: string): Promise<boolean> {
+    if (!detail) return false;
+
+    const result = await updateItem(detail.id, {
+      title: detail.title,
+      description: detail.description,
+      tags: detail.tags,
+      content: optimized,
+      language: detail.language,
+      url: detail.url,
+      collectionIds: detail.collections.map((collection) => collection.id),
+    });
+
+    if (!result.success) {
+      toast.error(result.error);
+      return false;
+    }
+
+    toast.success("Prompt updated");
+    onSaved({
+      ...result.data,
+      createdAt: new Date(result.data.createdAt).toISOString(),
+      updatedAt: new Date(result.data.updatedAt).toISOString(),
+    });
+    return true;
   }
 
   async function handleDelete() {
@@ -307,7 +338,21 @@ export function ItemDrawer({
                             }}
                           />
                         ) : isMarkdownItemType(detail.type.name) ? (
-                          <MarkdownEditor value={detail.content} readOnly />
+                          <MarkdownEditor
+                            key={detail.id}
+                            value={detail.content}
+                            readOnly
+                            optimize={
+                              detail.type.name === "prompt"
+                                ? {
+                                    title: detail.title,
+                                    typeName: detail.type.name,
+                                    isPro,
+                                    onApply: handleApplyOptimizedPrompt,
+                                  }
+                                : undefined
+                            }
+                          />
                         ) : (
                           <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-xs leading-relaxed">
                             <code>{detail.content}</code>

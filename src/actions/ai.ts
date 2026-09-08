@@ -4,6 +4,10 @@ import { auth } from "@/auth";
 import { generateAutoTags as generateAutoTagsQuery } from "@/lib/ai/auto-tags";
 import { generateItemDescription as generateItemDescriptionQuery } from "@/lib/ai/description";
 import { explainCode as explainCodeQuery } from "@/lib/ai/explain";
+import {
+  optimizePrompt as optimizePromptQuery,
+  type OptimizePromptResult,
+} from "@/lib/ai/optimize-prompt";
 import { isAiConfigured } from "@/lib/ai/client";
 import {
   AI_RATE_LIMIT,
@@ -14,6 +18,7 @@ import {
   autoTagSchema,
   describeItemSchema,
   explainCodeSchema,
+  optimizePromptSchema,
 } from "@/lib/validations/ai";
 
 type ActionResult<T> =
@@ -28,6 +33,9 @@ const PRO_DESCRIBE_MESSAGE =
 
 const PRO_EXPLAIN_MESSAGE =
   "AI code explanations are a DevStash Pro feature. Upgrade to use it.";
+
+const PRO_OPTIMIZE_MESSAGE =
+  "AI prompt optimization is a DevStash Pro feature. Upgrade to use it.";
 
 /**
  * Suggest 3-5 freeform tags for an item from its title + content, via OpenAI.
@@ -208,6 +216,70 @@ export async function explainCode(
     return {
       success: false,
       error: "Couldn't explain this code right now. Try again in a moment.",
+    };
+  }
+}
+
+/**
+ * Refine a `prompt`-type item's text — return a clearer, more specific rewrite
+ * that keeps the original intent, via OpenAI. The result also flags whether the
+ * model actually changed anything (`changed: false` when the prompt is already
+ * well-written).
+ *
+ * Same gate order as {@link generateAutoTags}: signed-in → Pro → AI configured →
+ * per-user rate limit (20/hour, shared AI budget) → Zod. Nothing is written —
+ * the item drawer shows the suggestion inline and only persists it through the
+ * existing `updateItem` path when the user accepts.
+ */
+export async function optimizePrompt(
+  input: unknown,
+): Promise<ActionResult<OptimizePromptResult>> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, error: "You must be signed in." };
+  }
+
+  if (!session.user.isPro) {
+    return { success: false, error: PRO_OPTIMIZE_MESSAGE };
+  }
+
+  if (!isAiConfigured()) {
+    return { success: false, error: "AI features aren't available right now." };
+  }
+
+  const rl = await checkUserRateLimit({
+    name: "ai:optimize-prompt",
+    userId: session.user.id,
+    limit: AI_RATE_LIMIT.limit,
+    window: AI_RATE_LIMIT.window,
+  });
+  if (!rl.success) {
+    return { success: false, error: tooManyAttemptsMessage(rl.reset) };
+  }
+
+  const parsed = optimizePromptSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: "Please fix the highlighted fields.",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  try {
+    const result = await optimizePromptQuery(parsed.data);
+    if (!result.optimized) {
+      return {
+        success: false,
+        error: "Couldn't optimize this prompt yet. Try again in a moment.",
+      };
+    }
+    return { success: true, data: result };
+  } catch (error) {
+    console.error("optimizePrompt action failed", error);
+    return {
+      success: false,
+      error: "Couldn't optimize this prompt right now. Try again in a moment.",
     };
   }
 }

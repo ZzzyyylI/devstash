@@ -4,6 +4,7 @@ import {
   autoTagSchema,
   describeItemSchema,
   explainCodeSchema,
+  optimizePromptSchema,
 } from "@/lib/validations/ai";
 
 describe("autoTagSchema", () => {
@@ -126,6 +127,39 @@ describe("explainCodeSchema", () => {
     expect(
       explainCodeSchema.safeParse({ title: "x".repeat(201), content: "echo" })
         .success,
+    ).toBe(false);
+  });
+});
+
+describe("optimizePromptSchema", () => {
+  it("trims the title and content", () => {
+    const parsed = optimizePromptSchema.parse({
+      title: "  Summarize a PR  ",
+      content: "  write a summary of this pull request  ",
+    });
+    expect(parsed).toEqual({
+      title: "Summarize a PR",
+      content: "write a summary of this pull request",
+    });
+  });
+
+  it("requires a non-empty title and content", () => {
+    expect(
+      optimizePromptSchema.safeParse({ title: "  ", content: "do a thing" })
+        .success,
+    ).toBe(false);
+    expect(
+      optimizePromptSchema.safeParse({ title: "x", content: "   " }).success,
+    ).toBe(false);
+    expect(optimizePromptSchema.safeParse({ title: "x" }).success).toBe(false);
+  });
+
+  it("rejects an over-long title", () => {
+    expect(
+      optimizePromptSchema.safeParse({
+        title: "x".repeat(201),
+        content: "do a thing",
+      }).success,
     ).toBe(false);
   });
 });

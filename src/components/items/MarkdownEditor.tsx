@@ -3,9 +3,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, Crown, Loader2, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
+import { optimizePrompt } from "@/actions/ai";
 import { debounce, type Debounced } from "@/lib/debounce";
 import { useCopyToClipboard } from "@/lib/use-copy-to-clipboard";
 
@@ -16,11 +18,30 @@ const MAX_HEIGHT = 400;
 /** How long typing has to pause before the edit is pushed up to the parent form. */
 const ONCHANGE_DEBOUNCE_MS = 250;
 
-type Tab = "write" | "preview";
+type Tab = "write" | "preview" | "optimized";
 
 /** SSR-safe layout effect (avoids the useLayoutEffect-on-server warning). */
 const useIsoLayoutEffect =
   typeof window === "undefined" ? useEffect : useLayoutEffect;
+
+/**
+ * Enables the Pro "Optimize" affordance + Original / Optimized tabs in the
+ * header. Only the item drawer's read-only view of a `prompt` item passes this —
+ * never the create/edit forms or a `note` item.
+ */
+export interface MarkdownEditorOptimize {
+  /** Item title, sent to the model for context. */
+  title: string;
+  /** Item type name (`prompt`), sent to the model for context. */
+  typeName: string;
+  /** Gates the feature — free users see a Crown hint instead of a live button. */
+  isPro: boolean;
+  /**
+   * Persist the accepted prompt through the drawer's normal update path.
+   * Resolves `true` on success (the panel then closes), `false` on failure.
+   */
+  onApply: (optimized: string) => Promise<boolean>;
+}
 
 interface MarkdownEditorProps {
   value: string;
@@ -29,6 +50,7 @@ interface MarkdownEditorProps {
   readOnly?: boolean;
   autoFocus?: boolean;
   className?: string;
+  optimize?: MarkdownEditorOptimize;
 }
 
 /**
@@ -37,6 +59,12 @@ interface MarkdownEditorProps {
  * the body grows with its content up to {@link MAX_HEIGHT}px, then scrolls.
  * In readonly mode only the Preview tab shows; in edit mode it defaults to
  * Write with Preview a click away.
+ *
+ * When `optimize` is passed (the item drawer's read view of a `prompt` item),
+ * the header also carries a Pro-gated "Optimize" button; once it returns, the
+ * Write/Preview tabs are replaced by Original / Optimized tabs and the suggested
+ * rewrite renders with a Use-this-prompt / Discard footer. Suggestions are never
+ * stored — accepting one writes through the drawer's `updateItem` path.
  */
 export function MarkdownEditor({
   value,
@@ -44,11 +72,18 @@ export function MarkdownEditor({
   readOnly = false,
   autoFocus = false,
   className,
+  optimize,
 }: MarkdownEditorProps) {
   const isReadOnly = readOnly || !onChange;
   const [tab, setTab] = useState<Tab>(isReadOnly ? "preview" : "write");
   const { copied, copy } = useCopyToClipboard();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Prompt-optimization state (only reachable when `optimize` is set).
+  const [suggestion, setSuggestion] = useState<string | null>(null);
+  const [suggestionChanged, setSuggestionChanged] = useState(false);
+  const [optimizing, setOptimizing] = useState(false);
+  const [applying, setApplying] = useState(false);
 
   // The textarea is driven by local `draft` for instant feedback; the value is
   // pushed up to the parent form (which re-renders the whole edit tree) only
@@ -100,6 +135,48 @@ export function MarkdownEditor({
     setTab(next);
   }
 
+  async function handleOptimize() {
+    if (!optimize || optimizing || applying) return;
+    setOptimizing(true);
+
+    const result = await optimizePrompt({
+      title: optimize.title,
+      content: draft,
+    });
+
+    setOptimizing(false);
+
+    if (!result.success) {
+      toast.error(result.error);
+      return;
+    }
+
+    setSuggestion(result.data.optimized);
+    setSuggestionChanged(result.data.changed);
+    setTab("optimized");
+    if (!result.data.changed) {
+      toast.info("This prompt already looks well-optimized.");
+    }
+  }
+
+  function dismissSuggestion() {
+    setSuggestion(null);
+    setSuggestionChanged(false);
+    setTab(isReadOnly ? "preview" : "write");
+  }
+
+  async function handleApply() {
+    if (!optimize || suggestion === null || applying) return;
+    setApplying(true);
+    const ok = await optimize.onApply(suggestion);
+    setApplying(false);
+    if (ok) {
+      setSuggestion(null);
+      setSuggestionChanged(false);
+      setTab("preview");
+    }
+  }
+
   // Grow the textarea to fit its content, clamped to [MIN, MAX].
   useIsoLayoutEffect(() => {
     const el = textareaRef.current;
@@ -114,6 +191,9 @@ export function MarkdownEditor({
     }
   }, [autoFocus, isReadOnly, tab]);
 
+  const showOptimize = Boolean(optimize);
+  const onOptimized = tab === "optimized" && suggestion !== null;
+
   return (
     <div
       className={cn(
@@ -123,32 +203,132 @@ export function MarkdownEditor({
     >
       <div className="flex items-center justify-between gap-2 border-b border-[#333] bg-[#2d2d2d] px-2 py-1.5">
         <div className="flex items-center gap-1">
-          {!isReadOnly && (
-            <TabButton
-              active={tab === "write"}
-              onClick={() => selectTab("write")}
-            >
-              Write
-            </TabButton>
+          {suggestion !== null ? (
+            <>
+              <TabButton
+                active={tab !== "optimized"}
+                onClick={() => selectTab(isReadOnly ? "preview" : "write")}
+              >
+                Original
+              </TabButton>
+              <TabButton
+                active={tab === "optimized"}
+                onClick={() => setTab("optimized")}
+              >
+                Optimized
+              </TabButton>
+            </>
+          ) : (
+            <>
+              {!isReadOnly && (
+                <TabButton
+                  active={tab === "write"}
+                  onClick={() => selectTab("write")}
+                >
+                  Write
+                </TabButton>
+              )}
+              <TabButton
+                active={tab === "preview"}
+                onClick={() => selectTab("preview")}
+              >
+                Preview
+              </TabButton>
+            </>
           )}
-          <TabButton
-            active={tab === "preview"}
-            onClick={() => selectTab("preview")}
-          >
-            Preview
-          </TabButton>
         </div>
-        <button
-          type="button"
-          onClick={() => copy(draft)}
-          className="inline-flex cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium text-white/50 transition-colors hover:bg-white/10 hover:text-white/80"
-        >
-          {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
-          {copied ? "Copied" : "Copy"}
-        </button>
+        <div className="flex items-center gap-1">
+          {showOptimize &&
+            (optimize!.isPro ? (
+              <button
+                type="button"
+                onClick={handleOptimize}
+                disabled={optimizing || applying || draft.trim().length === 0}
+                className="inline-flex cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium text-white/50 transition-colors hover:bg-white/10 hover:text-white/80 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-white/50"
+              >
+                {optimizing ? (
+                  <Loader2 className="size-3 animate-spin" />
+                ) : (
+                  <Sparkles className="size-3" />
+                )}
+                {optimizing
+                  ? "Optimizing…"
+                  : suggestion !== null
+                    ? "Regenerate"
+                    : "Optimize"}
+              </button>
+            ) : (
+              <span
+                title="AI features require Pro subscription"
+                className="inline-flex cursor-default items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium text-white/35"
+              >
+                <Crown className="size-3" />
+                Optimize
+              </span>
+            ))}
+          <button
+            type="button"
+            onClick={() => copy(onOptimized ? (suggestion ?? "") : draft)}
+            className="inline-flex cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium text-white/50 transition-colors hover:bg-white/10 hover:text-white/80"
+          >
+            {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+            {copied ? "Copied" : "Copy"}
+          </button>
+        </div>
       </div>
 
-      {tab === "write" && !isReadOnly ? (
+      {onOptimized ? (
+        <div>
+          <div
+            className="markdown-preview overflow-y-auto px-4 py-3"
+            style={{ minHeight: MIN_HEIGHT, maxHeight: MAX_HEIGHT }}
+          >
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {suggestion ?? ""}
+            </ReactMarkdown>
+          </div>
+          <div className="flex items-center justify-between gap-2 border-t border-[#333] bg-[#2d2d2d] px-3 py-2">
+            {suggestionChanged ? (
+              <>
+                <span className="text-[11px] text-white/40">
+                  Replace the saved prompt with this version?
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={dismissSuggestion}
+                    disabled={applying}
+                    className="cursor-pointer rounded px-2 py-1 text-[11px] font-medium text-white/50 transition-colors hover:bg-white/5 hover:text-white/70 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Discard
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleApply}
+                    disabled={applying}
+                    className="inline-flex cursor-pointer items-center gap-1 rounded bg-white/10 px-2 py-1 text-[11px] font-medium text-white/90 transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {applying ? "Saving…" : "Use this prompt"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <span className="text-[11px] text-white/40">
+                  No changes suggested — this prompt is already clear and specific.
+                </span>
+                <button
+                  type="button"
+                  onClick={dismissSuggestion}
+                  className="cursor-pointer rounded px-2 py-1 text-[11px] font-medium text-white/50 transition-colors hover:bg-white/5 hover:text-white/70"
+                >
+                  Dismiss
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      ) : tab === "write" && !isReadOnly ? (
         <textarea
           ref={textareaRef}
           value={draft}

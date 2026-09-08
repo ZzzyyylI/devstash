@@ -16,6 +16,11 @@ vi.mock("@/lib/ai/description", () => ({
 const explainCodeQuery = vi.fn();
 vi.mock("@/lib/ai/explain", () => ({ explainCode: explainCodeQuery }));
 
+const optimizePromptQuery = vi.fn();
+vi.mock("@/lib/ai/optimize-prompt", () => ({
+  optimizePrompt: optimizePromptQuery,
+}));
+
 const isAiConfigured = vi.fn();
 vi.mock("@/lib/ai/client", () => ({ isAiConfigured }));
 
@@ -26,9 +31,8 @@ vi.mock("@/lib/rate-limit", () => ({
   tooManyAttemptsMessage: () => "Too many attempts. Try again later.",
 }));
 
-const { generateAutoTags, generateItemDescription, explainCode } = await import(
-  "@/actions/ai"
-);
+const { generateAutoTags, generateItemDescription, explainCode, optimizePrompt } =
+  await import("@/actions/ai");
 
 beforeEach(() => {
   auth.mockReset();
@@ -37,6 +41,7 @@ beforeEach(() => {
   explainCodeQuery.mockReset();
   isAiConfigured.mockReset();
   checkUserRateLimit.mockReset();
+  optimizePromptQuery.mockReset();
 
   auth.mockResolvedValue({ user: { id: "user_1", isPro: true } });
   isAiConfigured.mockReturnValue(true);
@@ -44,6 +49,10 @@ beforeEach(() => {
   generateAutoTagsQuery.mockResolvedValue(["react", "hooks"]);
   generateItemDescriptionQuery.mockResolvedValue("A hook that debounces a value.");
   explainCodeQuery.mockResolvedValue("It debounces a value with a timer.");
+  optimizePromptQuery.mockResolvedValue({
+    optimized: "A sharper, more specific prompt.",
+    changed: true,
+  });
 });
 
 describe("generateAutoTags action", () => {
@@ -347,6 +356,111 @@ describe("explainCode action", () => {
     expect(result).toEqual({
       success: false,
       error: "Couldn't explain this code right now. Try again in a moment.",
+    });
+  });
+});
+
+describe("optimizePrompt action", () => {
+  const payload = { title: "Summarize a PR", content: "summarize this pr" };
+
+  it("rejects an unauthenticated caller without calling OpenAI", async () => {
+    auth.mockResolvedValue(null);
+
+    const result = await optimizePrompt(payload);
+
+    expect(result).toEqual({ success: false, error: "You must be signed in." });
+    expect(optimizePromptQuery).not.toHaveBeenCalled();
+  });
+
+  it("rejects a free (non-Pro) user with an upgrade message", async () => {
+    auth.mockResolvedValue({ user: { id: "user_1", isPro: false } });
+
+    const result = await optimizePrompt(payload);
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toMatch(/Pro/);
+    expect(optimizePromptQuery).not.toHaveBeenCalled();
+  });
+
+  it("returns an error when AI is not configured", async () => {
+    isAiConfigured.mockReturnValue(false);
+
+    const result = await optimizePrompt(payload);
+
+    expect(result).toEqual({
+      success: false,
+      error: "AI features aren't available right now.",
+    });
+    expect(optimizePromptQuery).not.toHaveBeenCalled();
+  });
+
+  it("returns the throttle message when rate limited", async () => {
+    checkUserRateLimit.mockResolvedValue({
+      success: false,
+      remaining: 0,
+      reset: Date.now() + 60_000,
+    });
+
+    const result = await optimizePrompt(payload);
+
+    expect(result).toEqual({
+      success: false,
+      error: "Too many attempts. Try again later.",
+    });
+    expect(optimizePromptQuery).not.toHaveBeenCalled();
+  });
+
+  it("returns field errors when there is no prompt to optimize", async () => {
+    const result = await optimizePrompt({ title: "Summarize a PR", content: "  " });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.fieldErrors?.content?.length).toBeGreaterThan(0);
+    }
+    expect(optimizePromptQuery).not.toHaveBeenCalled();
+  });
+
+  it("optimizes the prompt for the validated + normalised payload", async () => {
+    const result = await optimizePrompt({
+      title: "  Summarize a PR  ",
+      content: "  summarize this pr  ",
+    });
+
+    expect(checkUserRateLimit).toHaveBeenCalledWith({
+      name: "ai:optimize-prompt",
+      userId: "user_1",
+      limit: 20,
+      window: "1 h",
+    });
+    expect(optimizePromptQuery).toHaveBeenCalledWith({
+      title: "Summarize a PR",
+      content: "summarize this pr",
+    });
+    expect(result).toEqual({
+      success: true,
+      data: { optimized: "A sharper, more specific prompt.", changed: true },
+    });
+  });
+
+  it("returns a friendly error when the model gives nothing usable", async () => {
+    optimizePromptQuery.mockResolvedValue({ optimized: "", changed: false });
+
+    const result = await optimizePrompt(payload);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toMatch(/Couldn't optimize this prompt/);
+    }
+  });
+
+  it("returns a generic error when the helper throws", async () => {
+    optimizePromptQuery.mockRejectedValue(new Error("openai down"));
+
+    const result = await optimizePrompt(payload);
+
+    expect(result).toEqual({
+      success: false,
+      error: "Couldn't optimize this prompt right now. Try again in a moment.",
     });
   });
 });
