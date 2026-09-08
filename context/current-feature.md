@@ -1,18 +1,38 @@
-# Current Feature
-
-_None — ready for the next feature._
+# Current Feature: AI Description / Summary Generator
 
 ## Status
 
-Completed
+Complete
+
+## Resolved
+
+- Button label + placement: `Describe` (Sparkles icon; "Describing…" while pending), mounted in the Description field's label row via a new optional `headerRight` slot on `Field` — matches the Suggest-tags treatment one field down.
+- Already-non-empty Description: **overwrite** (it's a generate action). No confirm/append.
+- Output: plain-text Responses call (no `json_object`, so no "json"-in-input gotcha), then `sanitizeDescription` — collapse whitespace, strip one pair of wrapping quotes, keep ≤ 2 sentences, clip to 280 chars on a word boundary with an ellipsis.
+- Rate limit: shares the existing 20/hour AI budget, bucket `ai:description`.
+- No schema/DB change (`description` stays `nullableText`).
 
 ## Goals
 
-_None._
+- Add an icon button in the item forms that generates a good, concise **1–2 sentence** description/summary and drops it into the Description input.
+- Works for **all item types**, using whatever info is currently in the form — title, content, url, language, existing description, type — read from **live form state** (no save required first).
+- Present in both `NewItemDialog` (create) and the drawer's `ItemEditForm` (edit).
+- Pro-only and fail-soft, mirroring the **AI Auto-Tagging** feature: reuse `getOpenAI()` / `AI_MODEL` / Responses-API pattern (`src/lib/ai/client.ts`), `checkUserRateLimit`, the `ActionResult` envelope, and the "return `null` for non-Pro" component convention.
+- Clear pending / disabled / error states — `sonner` toasts on failure, button disabled when there isn't enough to work with (e.g. empty title).
+- Generated text lands in the Description field editable; user can tweak before saving.
 
 ## Notes
 
-_None._
+- Build on the AI foundation already shipped by AI Auto-Tagging — do not re-scaffold the client.
+- Likely new pieces (subject to /feature start):
+  - `src/lib/ai/summary.ts` (or `description.ts`) — `generateDescription({ title, content, url, type, language, description })`; pure tested helpers for input truncation + output sanitising (strip to 1–2 sentences, trim, collapse whitespace, cap length). Remember the Responses-API gotcha: the literal word "json" must appear in `input`, not just `instructions`, when using `json_object` format — or send plain text and just trim.
+  - `src/lib/validations/ai.ts` — add a schema for the new action's input.
+  - `src/actions/ai.ts` — add `generateDescription` action: `auth()` → `isPro` → `isAiConfigured()` → `checkUserRateLimit` (reuse `AI_RATE_LIMIT`) → `safeParse` → query, same envelope + `console.error` + generic catch.
+  - `src/components/items/item-form/GenerateDescriptionButton.tsx` — modeled on `SuggestTagsButton.tsx` (ghost `size="sm"`, `Sparkles` → `Loader2` spinner while pending, `null` for non-Pro), `onGenerate(text)` sets the description state.
+- **Affordance decision:** label the button `Describe` (icon `Sparkles` + text; pending = `Loader2` + "Describing…"), and mount it **in the Description `<Field>`'s label row, right-aligned** — same placement pattern as `SuggestTagsButton` inside the Tags field. Field-anchored placement + a verb that maps to "description" is what keeps it from reading as a title action. Disabled when the title is empty.
+- Open question for /feature start: if the Description field is already non-empty, overwrite silently, ask to confirm, or append? Default assumption: overwrite (it's a generate action), but surface this.
+- `description` is currently `nullableText` in the item validation — no schema/DB change expected.
+- Tests alongside new helpers/action per repo convention (`src/lib/**` + `src/actions/**`).
 
 ## History
 

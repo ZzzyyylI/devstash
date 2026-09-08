@@ -12,6 +12,7 @@ import { textareaClass } from "@/components/items/item-form/field-styles";
 import { ItemContentField } from "@/components/items/item-form/ItemContentField";
 import { LanguageSelect } from "@/components/items/item-form/LanguageSelect";
 import { CollectionPicker } from "@/components/items/item-form/CollectionPicker";
+import { DescribeButton } from "@/components/items/item-form/DescribeButton";
 import { SuggestTagsButton } from "@/components/items/item-form/SuggestTagsButton";
 
 /**
@@ -115,7 +116,22 @@ export function ItemEditForm({
           />
         </Field>
 
-        <Field label="Description" error={fieldErrors.description}>
+        <Field
+          label="Description"
+          error={fieldErrors.description}
+          headerRight={
+            <DescribeButton
+              isPro={isPro}
+              type={detail.type.name}
+              title={title}
+              content={showContent ? content : null}
+              url={showUrl ? url : null}
+              language={showLanguage ? language : null}
+              description={description}
+              onGenerate={setDescription}
+            />
+          }
+        >
           <textarea
             value={description}
             onChange={(event) => setDescription(event.target.value)}
