@@ -1,6 +1,3 @@
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-
 import { getCollectionsPage } from "@/lib/db/collections";
 import { parsePageParam } from "@/lib/pagination";
 import { CollectionCard } from "@/components/dashboard/CollectionCard";
@@ -24,15 +21,8 @@ export default async function CollectionsPage({
   } = await getCollectionsPage(parsePageParam(pageParam));
 
   return (
-    <div className="mx-auto max-w-6xl p-6">
-      <Link
-        href="/dashboard"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="size-4" />
-        Back to dashboard
-      </Link>
-      <div className="mt-4">
+    <div className="mx-auto max-w-6xl">
+      <div>
         <h1 className="text-2xl font-semibold">Collections</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {total} {total === 1 ? "collection" : "collections"}

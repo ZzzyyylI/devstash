@@ -14,6 +14,7 @@ import {
 import { postJson } from "@/lib/post-json";
 import { AuthField } from "@/components/auth/AuthField";
 import { FormError } from "@/components/auth/FormError";
+import { OAuthSection } from "@/components/auth/OAuthSection";
 
 type RegisterErrors = FieldErrors<
   "name" | "email" | "password" | "confirmPassword"
@@ -60,48 +61,54 @@ export function RegisterForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-3">
-      <AuthField id="name" label="Name" error={errors.name}>
-        <Input id="name" name="name" autoComplete="name" required />
-      </AuthField>
-      <AuthField id="email" label="Email" error={errors.email}>
-        <Input
-          id="email"
-          name="email"
-          type="email"
-          autoComplete="email"
-          required
-          placeholder="you@example.com"
-        />
-      </AuthField>
-      <AuthField id="password" label="Password" error={errors.password}>
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="new-password"
-          required
-        />
-      </AuthField>
-      <AuthField
-        id="confirmPassword"
-        label="Confirm password"
-        error={errors.confirmPassword}
-      >
-        <Input
+    <div className="space-y-4">
+      <form onSubmit={onSubmit} className="space-y-3">
+        <AuthField id="name" label="Name" error={errors.name}>
+          <Input id="name" name="name" autoComplete="name" required />
+        </AuthField>
+        <AuthField id="email" label="Email" error={errors.email}>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            required
+            placeholder="you@example.com"
+          />
+        </AuthField>
+        <AuthField id="password" label="Password" error={errors.password}>
+          <Input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="new-password"
+            required
+          />
+        </AuthField>
+        <AuthField
           id="confirmPassword"
-          name="confirmPassword"
-          type="password"
-          autoComplete="new-password"
-          required
-        />
-      </AuthField>
+          label="Confirm password"
+          error={errors.confirmPassword}
+        >
+          <Input
+            id="confirmPassword"
+            name="confirmPassword"
+            type="password"
+            autoComplete="new-password"
+            required
+          />
+        </AuthField>
 
-      <FormError>{errors.form}</FormError>
+        <FormError>{errors.form}</FormError>
 
-      <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? "Creating account…" : "Create account"}
-      </Button>
+        <Button type="submit" className="w-full" disabled={pending}>
+          {pending ? "Creating account…" : "Create account"}
+        </Button>
+      </form>
+
+      <div className="pt-4">
+        <OAuthSection label="Sign up with GitHub" />
+      </div>
 
       <p className="text-center text-sm text-muted-foreground">
         Already have an account?{" "}
@@ -109,6 +116,6 @@ export function RegisterForm() {
           Sign in
         </Link>
       </p>
-    </form>
+    </div>
   );
 }

@@ -42,7 +42,7 @@ export default async function CollectionDetailPage({
   );
 
   return (
-    <div className="mx-auto max-w-6xl p-6">
+    <div className="mx-auto max-w-6xl">
       <Link
         href="/collections"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"

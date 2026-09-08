@@ -17,8 +17,27 @@ import {
 
 const PRO_TYPE_NAMES = new Set(["file", "image"]);
 
+/** Shared layout/interaction classes for a sidebar nav row. */
+const ROW_BASE =
+  "relative flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
+/** Extra classes applied to the current-page row. */
+const ROW_ACTIVE = "bg-sidebar-accent font-medium text-sidebar-foreground";
+
 function capitalize(name: string) {
   return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+/** A left accent bar marking the active row, tinted to the given palette dot colour. */
+function ActiveBar({ dotClass }: { dotClass: string }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "absolute top-1/2 left-0 h-5 w-0.5 -translate-y-1/2 rounded-full",
+        dotClass,
+      )}
+    />
+  );
 }
 
 interface SidebarProps {
@@ -51,15 +70,18 @@ export function Sidebar({
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
       {/* Brand */}
-      <div
+      <Link
+        href="/dashboard"
+        onClick={onNavigate}
+        title={collapsed ? "DevStash" : undefined}
         className={cn(
-          "flex h-14 shrink-0 items-center gap-2 border-b border-border px-4",
+          "flex h-14 shrink-0 items-center gap-2 border-b border-border px-4 transition-colors hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
           collapsed && "justify-center",
         )}
       >
         <Folder className="size-5 shrink-0 text-[#3b82f6]" />
         {!collapsed && <span className="text-sm font-semibold">DevStash</span>}
-      </div>
+      </Link>
 
       {/* Navigation */}
       <nav className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
@@ -80,13 +102,15 @@ export function Sidebar({
                   <Link
                     href={href}
                     onClick={onNavigate}
+                    aria-current={active ? "page" : undefined}
                     title={collapsed ? capitalize(type.name) : undefined}
                     className={cn(
-                      "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground",
-                      active && "bg-sidebar-accent text-sidebar-foreground",
+                      ROW_BASE,
+                      active && ROW_ACTIVE,
                       collapsed && "justify-center",
                     )}
                   >
+                    {active && <ActiveBar dotClass={palette(type.color).dot} />}
                     <Icon
                       className={cn("size-4 shrink-0", palette(type.color).text)}
                     />
@@ -126,18 +150,24 @@ export function Sidebar({
                 <CollectionGroup
                   label="Favorites"
                   collections={favoriteCollections}
+                  pathname={pathname}
                   onNavigate={onNavigate}
                   showStar
                 />
                 <CollectionGroup
                   label="Recent"
                   collections={recentCollections}
+                  pathname={pathname}
                   onNavigate={onNavigate}
                 />
                 <Link
                   href="/collections"
                   onClick={onNavigate}
-                  className="block px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-sidebar-foreground"
+                  aria-current={pathname === "/collections" ? "page" : undefined}
+                  className={cn(
+                    "block rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                    pathname === "/collections" && "font-medium text-sidebar-foreground",
+                  )}
                 >
                   View all collections
                 </Link>
@@ -183,6 +213,7 @@ function SectionHeader({ label, open, collapsed, onToggle }: SectionHeaderProps)
 interface CollectionGroupProps {
   label: string;
   collections: CollectionWithStats[];
+  pathname: string;
   onNavigate?: () => void;
   showStar?: boolean;
 }
@@ -190,6 +221,7 @@ interface CollectionGroupProps {
 function CollectionGroup({
   label,
   collections,
+  pathname,
   onNavigate,
   showStar = false,
 }: CollectionGroupProps) {
@@ -200,33 +232,43 @@ function CollectionGroup({
         {label}
       </p>
       <ul className="space-y-0.5">
-        {collections.map((collection) => (
-          <li key={collection.id}>
-            <Link
-              href={`/collections/${collection.id}`}
-              onClick={onNavigate}
-              className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
-            >
-              <Folder className="size-4 shrink-0 text-muted-foreground" />
-              <span className="flex-1 truncate">{collection.name}</span>
-              {showStar ? (
-                <Star className="size-3.5 shrink-0 fill-amber-400 text-amber-400" />
-              ) : (
-                <span
-                  aria-label={
-                    collection.primaryType
-                      ? `Mostly ${collection.primaryType.name}`
-                      : undefined
-                  }
-                  className={cn(
-                    "size-2 shrink-0 rounded-full",
-                    palette(collection.primaryType?.color).dot,
-                  )}
-                />
-              )}
-            </Link>
-          </li>
-        ))}
+        {collections.map((collection) => {
+          const href = `/collections/${collection.id}`;
+          const active = pathname === href;
+          return (
+            <li key={collection.id}>
+              <Link
+                href={href}
+                onClick={onNavigate}
+                aria-current={active ? "page" : undefined}
+                className={cn(ROW_BASE, active && ROW_ACTIVE)}
+              >
+                {active && (
+                  <ActiveBar
+                    dotClass={palette(collection.primaryType?.color).dot}
+                  />
+                )}
+                <Folder className="size-4 shrink-0 text-muted-foreground" />
+                <span className="flex-1 truncate">{collection.name}</span>
+                {showStar ? (
+                  <Star className="size-3.5 shrink-0 fill-amber-400 text-amber-400" />
+                ) : (
+                  <span
+                    aria-label={
+                      collection.primaryType
+                        ? `Mostly ${collection.primaryType.name}`
+                        : undefined
+                    }
+                    className={cn(
+                      "size-2 shrink-0 rounded-full",
+                      palette(collection.primaryType?.color).dot,
+                    )}
+                  />
+                )}
+              </Link>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

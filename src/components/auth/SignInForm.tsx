@@ -5,11 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 
-import { signInWithGitHub } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { GitHubIcon } from "@/components/auth/GitHubIcon";
 import { FormError } from "@/components/auth/FormError";
+import { OAuthSection } from "@/components/auth/OAuthSection";
 import { signInSchema } from "@/lib/validations/auth";
 
 interface SignInFormProps {
@@ -24,7 +23,7 @@ export function SignInForm({ callbackUrl }: SignInFormProps) {
   const [resendState, setResendState] = useState<"idle" | "sending" | "sent">(
     "idle",
   );
-  const [pending, setPending] = useState<"credentials" | "github" | null>(null);
+  const [pending, setPending] = useState(false);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -42,12 +41,12 @@ export function SignInForm({ callbackUrl }: SignInFormProps) {
       return;
     }
 
-    setPending("credentials");
+    setPending(true);
     const result = await signIn("credentials", {
       ...parsed.data,
       redirect: false,
     });
-    setPending(null);
+    setPending(false);
 
     if (result?.code === "unverified_email") {
       setUnverifiedEmail(parsed.data.email);
@@ -149,30 +148,16 @@ export function SignInForm({ callbackUrl }: SignInFormProps) {
           </div>
         )}
 
-        <Button type="submit" className="w-full" disabled={pending !== null}>
-          {pending === "credentials" ? "Signing in…" : "Sign in"}
+        <Button type="submit" className="w-full" disabled={pending}>
+          {pending ? "Signing in…" : "Sign in"}
         </Button>
       </form>
 
-      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-        <span className="h-px flex-1 bg-border" />
-        or
-        <span className="h-px flex-1 bg-border" />
-      </div>
-
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full"
-        disabled={pending !== null}
-        onClick={() => {
-          setPending("github");
-          void signInWithGitHub(callbackUrl);
-        }}
-      >
-        <GitHubIcon />
-        {pending === "github" ? "Redirecting…" : "Sign in with GitHub"}
-      </Button>
+      <OAuthSection
+        label="Sign in with GitHub"
+        callbackUrl={callbackUrl}
+        disabled={pending}
+      />
 
       <p className="text-center text-sm text-muted-foreground">
         Don&apos;t have an account?{" "}

@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 export function ActionButton({
   icon: Icon,
   label,
+  ariaLabel,
   active = false,
   activeIconClass,
   destructive = false,
@@ -14,6 +15,8 @@ export function ActionButton({
 }: {
   icon: LucideIcon;
   label?: string;
+  /** Accessible name when there's no visible `label` (icon-only button). */
+  ariaLabel?: string;
   active?: boolean;
   activeIconClass?: string;
   destructive?: boolean;
@@ -23,6 +26,7 @@ export function ActionButton({
   return (
     <button
       type="button"
+      aria-label={label ? undefined : ariaLabel}
       onClick={onClick}
       disabled={disabled}
       className={cn(

@@ -252,6 +252,7 @@ export function ItemDrawer({
                     />
                     <ActionButton
                       icon={Trash2}
+                      label="Delete"
                       destructive
                       onClick={() => setConfirmingDelete(true)}
                     />

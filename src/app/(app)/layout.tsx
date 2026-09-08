@@ -9,7 +9,7 @@ import { getSearchIndex } from "@/lib/db/search";
 // The sidebar reads live data from Neon — don't statically cache it at build time.
 export const dynamic = "force-dynamic";
 
-export default async function DashboardLayout({
+export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;

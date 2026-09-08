@@ -1,6 +1,3 @@
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-
 import { requireProfileUser } from "@/lib/db/profile";
 import { getEditorPreferences } from "@/lib/db/editor-preferences";
 import { BillingCheckoutToast } from "@/components/settings/BillingCheckoutToast";
@@ -32,16 +29,8 @@ export default async function SettingsPage({
       : null;
 
   return (
-    <main className="mx-auto max-w-2xl p-6">
-      <Link
-        href="/dashboard"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="size-4" />
-        Back to dashboard
-      </Link>
-
-      <h1 className="text-xl font-semibold">Settings</h1>
+    <div className="mx-auto max-w-2xl">
+      <h1 className="text-2xl font-semibold">Settings</h1>
 
       {checkoutStatus && <BillingCheckoutToast status={checkoutStatus} />}
 
@@ -100,6 +89,6 @@ export default async function SettingsPage({
           </div>
         </div>
       </section>
-    </main>
+    </div>
   );
 }
