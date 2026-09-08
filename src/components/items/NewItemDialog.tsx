@@ -17,6 +17,7 @@ import { FileUpload, type UploadedFile } from "@/components/items/FileUpload";
 import { Field } from "@/components/items/item-form/Field";
 import { textareaClass } from "@/components/items/item-form/field-styles";
 import { ItemContentField } from "@/components/items/item-form/ItemContentField";
+import { LanguageSelect } from "@/components/items/item-form/LanguageSelect";
 import { CollectionPicker } from "@/components/items/item-form/CollectionPicker";
 import {
   Dialog,
@@ -252,6 +253,15 @@ export function NewItemDialog({
             </Field>
           )}
 
+          {showLanguage && (
+            <Field label="Language" error={fieldErrors.language}>
+              <LanguageSelect
+                value={form.language}
+                onChange={(next) => set("language", next)}
+              />
+            </Field>
+          )}
+
           {showContent && (
             <ItemContentField
               typeName={form.type}
@@ -260,16 +270,6 @@ export function NewItemDialog({
               language={form.language}
               error={fieldErrors.content}
             />
-          )}
-
-          {showLanguage && (
-            <Field label="Language" error={fieldErrors.language}>
-              <Input
-                value={form.language}
-                onChange={(event) => set("language", event.target.value)}
-                placeholder="e.g. typescript"
-              />
-            </Field>
           )}
 
           {showUrl && (

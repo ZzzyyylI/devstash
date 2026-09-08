@@ -10,6 +10,7 @@ import type { ItemDetailJson } from "@/components/items/item-detail-json";
 import { Field } from "@/components/items/item-form/Field";
 import { textareaClass } from "@/components/items/item-form/field-styles";
 import { ItemContentField } from "@/components/items/item-form/ItemContentField";
+import { LanguageSelect } from "@/components/items/item-form/LanguageSelect";
 import { CollectionPicker } from "@/components/items/item-form/CollectionPicker";
 
 /**
@@ -119,6 +120,12 @@ export function ItemEditForm({
           />
         </Field>
 
+        {showLanguage && (
+          <Field label="Language" error={fieldErrors.language}>
+            <LanguageSelect value={language} onChange={setLanguage} />
+          </Field>
+        )}
+
         {showContent && (
           <ItemContentField
             typeName={detail.type.name}
@@ -127,16 +134,6 @@ export function ItemEditForm({
             language={language}
             error={fieldErrors.content}
           />
-        )}
-
-        {showLanguage && (
-          <Field label="Language" error={fieldErrors.language}>
-            <Input
-              value={language}
-              onChange={(event) => setLanguage(event.target.value)}
-              placeholder="e.g. typescript"
-            />
-          </Field>
         )}
 
         {showUrl && (

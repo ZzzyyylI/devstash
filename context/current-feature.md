@@ -1,18 +1,31 @@
 # Current Feature
 
-_None — ready for the next feature._
+Code language selector — a language **dropdown above the content editor** in the New Item modal and the drawer's edit form, driving live Monaco highlighting.
 
 ## Status
 
-Completed
+In Progress
 
 ## Goals
 
-_None._
+- Replace the free-text "Language" `<Input>` (snippet / command items) with a `<select>`
+  dropdown of common languages, positioned **above** the Content editor instead of below it,
+  in both `NewItemDialog` and `ItemEditForm`.
+- Selecting a language updates Monaco syntax highlighting live as you type (the value already
+  threads through `ItemContentField` → `CodeEditor`).
+- Curated list + helpers in `src/lib/code-editor.ts` (`CODE_LANGUAGE_OPTIONS`,
+  `isKnownCodeLanguage`, `codeLanguageSelectValue`). A stored value that isn't a known option
+  (legacy free text) is kept as an extra leading option so editing an old item never drops it.
+- New `src/components/items/item-form/LanguageSelect.tsx`.
+- No schema / server-action / validation change — `language` stays `nullableText`; the
+  "Plain text" option (`""`) collapses to `null`.
 
 ## Notes
 
-_None._
+- Pre-existing unrelated uncommitted changes on the tree (`.env.example`, `prisma/seed.ts`,
+  `scripts/test-db.ts`, `src/app/sign-in/page.tsx`, `src/app/register/page.tsx`, `src/proxy.ts`,
+  and the untracked `context/` + `docs/` AI-integration research files) are excluded from this
+  feature's commit.
 
 ## History
 
