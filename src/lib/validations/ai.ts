@@ -58,3 +58,16 @@ export const explainCodeSchema = z.object({
 
 /** Validated + normalised explain-code payload. */
 export type ExplainCodeInput = z.infer<typeof explainCodeSchema>;
+
+/**
+ * `optimizePrompt` payload. `title` + `content` are required (Optimize only
+ * appears on a `prompt` item that already has text); `content` is truncated
+ * server-side before the API call.
+ */
+export const optimizePromptSchema = z.object({
+  title: z.string().trim().min(1, "Add a title first").max(200),
+  content: z.string().trim().min(1, "There's no prompt to optimize"),
+});
+
+/** Validated + normalised optimize-prompt payload. */
+export type OptimizePromptInput = z.infer<typeof optimizePromptSchema>;
