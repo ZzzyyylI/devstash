@@ -296,9 +296,15 @@ export function ItemDrawer({
                       <Section title="Content">
                         {isCodeItemType(detail.type.name) ? (
                           <CodeEditor
+                            key={detail.id}
                             value={detail.content}
                             language={detail.language}
                             readOnly
+                            explain={{
+                              title: detail.title,
+                              typeName: detail.type.name,
+                              isPro,
+                            }}
                           />
                         ) : isMarkdownItemType(detail.type.name) ? (
                           <MarkdownEditor value={detail.content} readOnly />

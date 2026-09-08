@@ -1,18 +1,33 @@
-# Current Feature
-
-_None — ready for the next feature._
+# Current Feature: AI Explain Code
 
 ## Status
 
-Completed
+In Progress
 
 ## Goals
 
-_None._
+- Add an `explainCode` server action (`src/actions/ai.ts`) — `auth()` → Pro gating → `isAiConfigured()` → `checkUserRateLimit` (shared 20/h AI budget, name `ai:explain`) → Zod validation → query; same `ActionResult<{ explanation }>` envelope + `console.error` + generic catch as `generateAutoTags` / `generateItemDescription`.
+- New `src/lib/ai/explain.ts` query calling the OpenAI Responses API (plain text) with pure, tested helpers (content truncation, input builder, output sanitize) mirroring `auto-tags.ts` / `description.ts`.
+- New `explainCodeSchema` in `src/lib/validations/ai.ts` (reuse the shared `optionalText` transform): `title` + `content` + `language`/`type` as needed.
+- "Explain" button (`Sparkles` icon) in the code editor window-controls header, next to the Copy button — item drawer read view only, and only for `snippet` and `command` item types (not in create/edit forms).
+- After generating, show Code / Explain tabs in the editor header to toggle views; render the explanation as markdown in the same container space as the editor.
+- Explanation is concise (~200–300 words): what the code does + key concepts.
+- Loading state: `Loader2` spinner while the action is pending.
+- Free users: show a `Crown` icon + tooltip ("AI features require Pro subscription") instead of a working button; server action also enforces.
+- Errors surface via `sonner` toast (Pro gating, rate limit, AI service errors).
+- `isPro` threaded as a prop to the item drawer / code editor path as needed.
+- Unit tests for the server action + the new pure helpers; `npm run test` / `lint` / `build` green.
 
 ## Notes
 
-_None._
+- **Third AI feature.** Foundation (`src/lib/ai/client.ts` `getOpenAI` / `AI_MODEL = "gpt-5-nano"` / `isAiConfigured`, `checkUserRateLimit` + `AI_RATE_LIMIT` 20/h per-user, `tooManyAttemptsMessage`) already exists from AI Auto-Tagging.
+- Explanations are **not** saved to the DB — regenerated on each click. No schema / migration change.
+- Not available in create/edit forms — only the item drawer read view.
+- Explanation displays **inline via a tab interface in the code editor header**, not a separate panel.
+- Responses API note: plain-text output (no `json_object`), so the "must contain the word 'json'" input gotcha from auto-tags does not apply here.
+- Follow existing patterns: `DescribeButton` / `SuggestTagsButton` for the client button (`null` for non-Pro), `src/actions/ai.ts` for the action gate order, `src/lib/ai/description.ts` for the query + helper shape.
+- See `context/features/ai-explain-spec.md` and `docs/ai-integration-plan.md` for full context.
+- Deferred from earlier AI work still open: prompt optimization (4th AI feature); `aiEnabled` prop so buttons hide when the key is unset; per-type prompt tuning; `max_output_tokens` / `reasoning: { effort: "minimal" }`.
 
 ## History
 

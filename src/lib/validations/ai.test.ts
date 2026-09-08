@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { autoTagSchema, describeItemSchema } from "@/lib/validations/ai";
+import {
+  autoTagSchema,
+  describeItemSchema,
+  explainCodeSchema,
+} from "@/lib/validations/ai";
 
 describe("autoTagSchema", () => {
   it("accepts a title with content and trims both", () => {
@@ -77,6 +81,50 @@ describe("describeItemSchema", () => {
   it("rejects an over-long title", () => {
     expect(
       describeItemSchema.safeParse({ title: "x".repeat(201), type: "note" })
+        .success,
+    ).toBe(false);
+  });
+});
+
+describe("explainCodeSchema", () => {
+  it("trims the required fields and normalises the optional ones", () => {
+    const parsed = explainCodeSchema.parse({
+      title: "  groupBy util  ",
+      content: "  export function groupBy() {}  ",
+      language: "  typescript ",
+      type: "  snippet  ",
+    });
+    expect(parsed).toEqual({
+      title: "groupBy util",
+      content: "export function groupBy() {}",
+      language: "typescript",
+      type: "snippet",
+    });
+  });
+
+  it("collapses missing optional fields to null", () => {
+    const parsed = explainCodeSchema.parse({ title: "x", content: "echo hi" });
+    expect(parsed).toEqual({
+      title: "x",
+      content: "echo hi",
+      language: null,
+      type: null,
+    });
+  });
+
+  it("requires a non-empty title and content", () => {
+    expect(
+      explainCodeSchema.safeParse({ title: "  ", content: "echo hi" }).success,
+    ).toBe(false);
+    expect(
+      explainCodeSchema.safeParse({ title: "x", content: "   " }).success,
+    ).toBe(false);
+    expect(explainCodeSchema.safeParse({ title: "x" }).success).toBe(false);
+  });
+
+  it("rejects an over-long title", () => {
+    expect(
+      explainCodeSchema.safeParse({ title: "x".repeat(201), content: "echo" })
         .success,
     ).toBe(false);
   });
