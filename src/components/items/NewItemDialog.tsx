@@ -207,7 +207,7 @@ export function NewItemDialog({
               <p className="text-xs text-muted-foreground">
                 File uploads are a Pro feature.{" "}
                 <Link
-                  href="/settings"
+                  href="/upgrade"
                   className="font-medium text-foreground underline underline-offset-2"
                 >
                   Upgrade

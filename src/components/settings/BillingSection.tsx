@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import { postJson } from "@/lib/post-json";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PRICING } from "@/lib/home-content";
 import type { BillingInterval } from "@/lib/stripe/plans";
@@ -49,9 +50,19 @@ export function BillingSection({ isPro, hasCustomer }: BillingSectionProps) {
 
   return (
     <div className="rounded-xl border border-border bg-card p-4">
-      <p className="text-sm font-medium">
-        {isPro ? "DevStash Pro" : "Free plan"}
-      </p>
+      <div className="flex items-center gap-2">
+        <p className="text-sm font-medium text-foreground">
+          {isPro ? "DevStash Pro" : "Free plan"}
+        </p>
+        {isPro && (
+          <Badge
+            variant="outline"
+            className="border-[#f59e0b]/40 bg-[#f59e0b]/15 text-[10px] font-semibold tracking-wide text-[#f59e0b] uppercase"
+          >
+            Pro
+          </Badge>
+        )}
+      </div>
       <p className="mt-1 text-sm text-muted-foreground">
         {isPro
           ? "Unlimited items and collections, file uploads, and every Pro feature."

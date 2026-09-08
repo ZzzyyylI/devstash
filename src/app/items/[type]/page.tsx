@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { auth } from "@/auth";
 import { getItemsByType } from "@/lib/db/items";
 import { getItemTypeByName } from "@/lib/db/item-types";
 import { parsePageParam } from "@/lib/pagination";
+import { isProItemType } from "@/lib/pro-item-types";
 import {
   CREATE_ITEM_TYPES,
   type CreateItemType,
@@ -37,6 +38,12 @@ export default async function ItemsByTypePage({
 
   if (!itemType) {
     notFound();
+  }
+
+  // File and image items are a Pro feature — free accounts are sent to the
+  // upgrade page instead of the list (and we skip the item query entirely).
+  if (isProItemType(itemType.name) && !session?.user?.isPro) {
+    redirect("/upgrade");
   }
 
   const { items, page, pageCount, total } = await getItemsByType(

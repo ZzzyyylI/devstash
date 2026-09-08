@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { FolderPlus, PanelLeft, Plus, Search, Star } from "lucide-react";
+import { FolderPlus, PanelLeft, Plus, Search, Sparkles, Star } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -108,6 +108,20 @@ export function TopBar({
       </button>
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
+        {!isPro && (
+          <Button
+            variant="ghost"
+            size="lg"
+            asChild
+            className="hidden sm:inline-flex"
+          >
+            <Link href="/upgrade">
+              <Sparkles />
+              Upgrade
+            </Link>
+          </Button>
+        )}
+
         <Button variant="ghost" size="icon" asChild aria-label="Favorites">
           <Link href="/favorites">
             <Star />

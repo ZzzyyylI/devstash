@@ -1,18 +1,31 @@
 # Current Feature
 
-_None — ready for the next feature._
+Upgrade flow — `/upgrade` page + subtle header entry point, file/image gate redirects there.
 
 ## Status
 
-Completed
+In progress
 
 ## Goals
 
-_None._
+- Fix the low-contrast "Pro" text on the `/settings` billing card when the user is Pro
+  (add a readable badge / lighten the heading).
+- New `/upgrade` page: shows the Pro feature list (like the homepage pricing area) with a
+  monthly / yearly ($8 / $72) selector and an "Upgrade" button that starts Stripe Checkout.
+- Free users get a **ghost** "Upgrade" button in the dashboard header (more subtle than the
+  other header buttons). It links to `/upgrade`, not straight to Stripe Checkout.
+- Clicking Files / Images (sidebar links → `/items/file`, `/items/image`) sends free users to
+  `/upgrade` instead of the old `ProTypeUpsell` screen.
+- Remove `ProTypeUpsell.tsx` (no longer rendered). Keep `src/lib/pro-item-types.ts`
+  (sidebar PRO badges + the redirect check still use it); cover it with a unit test.
 
 ## Notes
 
-_None._
+- `/upgrade` is protected in-page via `auth()` (redirects signed-out → `/sign-in`,
+  already-Pro → `/settings`) so `src/proxy.ts` is left untouched.
+- Pre-existing unrelated uncommitted changes on `main` (`prisma/seed.ts`, `scripts/test-db.ts`,
+  `src/app/sign-in/page.tsx`, `src/app/register/page.tsx`, `src/proxy.ts`) are excluded from
+  this feature's commit.
 
 ## History
 
