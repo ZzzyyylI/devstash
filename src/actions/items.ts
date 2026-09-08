@@ -1,6 +1,7 @@
 "use server";
 
-import { auth } from "@/auth";
+import { parseInput, requireUser, runMutation } from "@/lib/actions/guards";
+import type { ActionResult } from "@/lib/actions/types";
 import {
   createItem as createItemQuery,
   deleteItem as deleteItemQuery,
@@ -11,9 +12,13 @@ import {
 import { createItemSchema, updateItemSchema } from "@/lib/validations/item";
 import { checkItemLimit, limitErrorMessage } from "@/lib/stripe/limits";
 
-type ActionResult<T> =
-  | { success: true; data: T }
-  | { success: false; error: string; fieldErrors?: Record<string, string[]> };
+/** Shared guard for the id-only actions (favorite / delete). */
+function requireItemId(itemId: string): ActionResult<never> | null {
+  if (typeof itemId !== "string" || itemId.length === 0) {
+    return { success: false, error: "Missing item id." };
+  }
+  return null;
+}
 
 /**
  * Create an item from the "New Item" dialog.
@@ -26,46 +31,31 @@ type ActionResult<T> =
 export async function createItem(
   input: unknown,
 ): Promise<ActionResult<ItemDetail>> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { success: false, error: "You must be signed in to create items." };
-  }
+  const user = await requireUser("You must be signed in to create items.");
+  if (!user.ok) return user.result;
 
-  const parsed = createItemSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      success: false,
-      error: "Please fix the highlighted fields.",
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    };
-  }
+  const parsed = parseInput(createItemSchema, input);
+  if (!parsed.ok) return parsed.result;
 
   // Free-plan gating. Scoped to the SESSION user (per context/current-feature.md)
   // — correct for real billing. NB: the data-layer write below is still
   // demo-user-scoped, so a signed-in non-demo user's own item count is 0 and
   // this limit is effectively inert until the data layer is session-scoped.
-  const isPro = Boolean(session.user.isPro);
-  const limit = await checkItemLimit(session.user.id, isPro);
+  const limit = await checkItemLimit(user.value.id, user.value.isPro);
   if (!limit.allowed) {
     return { success: false, error: limitErrorMessage("item", limit) };
   }
-  if (parsed.data.type === "file" && !isPro) {
+  if (parsed.value.type === "file" && !user.value.isPro) {
     return {
       success: false,
       error: "File uploads are a Pro feature. Upgrade to attach files.",
     };
   }
 
-  try {
-    const created = await createItemQuery(parsed.data);
-    if (!created) {
-      return { success: false, error: "Something went wrong creating the item." };
-    }
-    return { success: true, data: created };
-  } catch (error) {
-    console.error("createItem action failed", error);
-    return { success: false, error: "Something went wrong creating the item." };
-  }
+  return runMutation("createItem", () => createItemQuery(parsed.value), {
+    notFound: "Something went wrong creating the item.",
+    failed: "Something went wrong creating the item.",
+  });
 }
 
 /**
@@ -81,34 +71,19 @@ export async function updateItem(
   itemId: string,
   input: unknown,
 ): Promise<ActionResult<ItemDetail>> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { success: false, error: "You must be signed in to edit items." };
-  }
+  const user = await requireUser("You must be signed in to edit items.");
+  if (!user.ok) return user.result;
 
-  if (typeof itemId !== "string" || itemId.length === 0) {
-    return { success: false, error: "Missing item id." };
-  }
+  const idError = requireItemId(itemId);
+  if (idError) return idError;
 
-  const parsed = updateItemSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      success: false,
-      error: "Please fix the highlighted fields.",
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    };
-  }
+  const parsed = parseInput(updateItemSchema, input);
+  if (!parsed.ok) return parsed.result;
 
-  try {
-    const updated = await updateItemQuery(itemId, parsed.data);
-    if (!updated) {
-      return { success: false, error: "Item not found." };
-    }
-    return { success: true, data: updated };
-  } catch (error) {
-    console.error("updateItem action failed", error);
-    return { success: false, error: "Something went wrong saving the item." };
-  }
+  return runMutation("updateItem", () => updateItemQuery(itemId, parsed.value), {
+    notFound: "Item not found.",
+    failed: "Something went wrong saving the item.",
+  });
 }
 
 /**
@@ -123,29 +98,24 @@ export async function setItemFavorite(
   itemId: string,
   isFavorite: boolean,
 ): Promise<ActionResult<ItemDetail>> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { success: false, error: "You must be signed in to update items." };
-  }
+  const user = await requireUser("You must be signed in to update items.");
+  if (!user.ok) return user.result;
 
-  if (typeof itemId !== "string" || itemId.length === 0) {
-    return { success: false, error: "Missing item id." };
-  }
+  const idError = requireItemId(itemId);
+  if (idError) return idError;
 
   if (typeof isFavorite !== "boolean") {
     return { success: false, error: "Invalid favorite value." };
   }
 
-  try {
-    const updated = await setItemFavoriteQuery(itemId, isFavorite);
-    if (!updated) {
-      return { success: false, error: "Item not found." };
-    }
-    return { success: true, data: updated };
-  } catch (error) {
-    console.error("setItemFavorite action failed", error);
-    return { success: false, error: "Something went wrong updating the item." };
-  }
+  return runMutation(
+    "setItemFavorite",
+    () => setItemFavoriteQuery(itemId, isFavorite),
+    {
+      notFound: "Item not found.",
+      failed: "Something went wrong updating the item.",
+    },
+  );
 }
 
 /**
@@ -158,23 +128,18 @@ export async function setItemFavorite(
 export async function deleteItem(
   itemId: string,
 ): Promise<ActionResult<{ id: string }>> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { success: false, error: "You must be signed in to delete items." };
-  }
+  const user = await requireUser("You must be signed in to delete items.");
+  if (!user.ok) return user.result;
 
-  if (typeof itemId !== "string" || itemId.length === 0) {
-    return { success: false, error: "Missing item id." };
-  }
+  const idError = requireItemId(itemId);
+  if (idError) return idError;
 
-  try {
-    const deleted = await deleteItemQuery(itemId);
-    if (!deleted) {
-      return { success: false, error: "Item not found." };
-    }
-    return { success: true, data: { id: itemId } };
-  } catch (error) {
-    console.error("deleteItem action failed", error);
-    return { success: false, error: "Something went wrong deleting the item." };
-  }
+  return runMutation(
+    "deleteItem",
+    async () => (await deleteItemQuery(itemId)) && { id: itemId },
+    {
+      notFound: "Item not found.",
+      failed: "Something went wrong deleting the item.",
+    },
+  );
 }
