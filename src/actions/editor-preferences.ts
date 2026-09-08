@@ -1,13 +1,10 @@
 "use server";
 
-import { auth } from "@/auth";
+import { parseInput, requireUser } from "@/lib/actions/guards";
+import type { ActionResult } from "@/lib/actions/types";
 import { updateEditorPreferences as updateEditorPreferencesQuery } from "@/lib/db/editor-preferences";
 import { editorPreferencesSchema } from "@/lib/validations/editor-preferences";
 import type { EditorPreferences } from "@/lib/editor-preferences";
-
-type ActionResult<T> =
-  | { success: true; data: T }
-  | { success: false; error: string; fieldErrors?: Record<string, string[]> };
 
 /**
  * Save the signed-in user's Monaco editor preferences (the settings page
@@ -18,28 +15,20 @@ type ActionResult<T> =
 export async function updateEditorPreferences(
   input: unknown,
 ): Promise<ActionResult<EditorPreferences>> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return {
-      success: false,
-      error: "You must be signed in to update editor preferences.",
-    };
-  }
+  const user = await requireUser(
+    "You must be signed in to update editor preferences.",
+  );
+  if (!user.ok) return user.result;
 
-  const parsed = editorPreferencesSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      success: false,
-      error: "Please choose valid editor settings.",
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    };
-  }
+  const parsed = parseInput(
+    editorPreferencesSchema,
+    input,
+    "Please choose valid editor settings.",
+  );
+  if (!parsed.ok) return parsed.result;
 
   try {
-    const saved = await updateEditorPreferencesQuery(
-      session.user.id,
-      parsed.data,
-    );
+    const saved = await updateEditorPreferencesQuery(user.value.id, parsed.value);
     return { success: true, data: saved };
   } catch (error) {
     console.error("updateEditorPreferences action failed", error);
