@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { ArrowLeft, Star } from "lucide-react";
+import { Star } from "lucide-react";
 
 import { auth } from "@/auth";
 import { getFavoriteItems } from "@/lib/db/items";
@@ -22,15 +21,8 @@ export default async function FavoritesPage() {
   ]);
 
   return (
-    <div className="mx-auto max-w-4xl p-6">
-      <Link
-        href="/dashboard"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="size-4" />
-        Back to dashboard
-      </Link>
-      <div className="mt-4 flex items-center gap-2">
+    <div className="mx-auto max-w-4xl">
+      <div className="flex items-center gap-2">
         <Star className="size-5 fill-amber-400 text-amber-400" />
         <h1 className="text-2xl font-semibold">Favorites</h1>
       </div>

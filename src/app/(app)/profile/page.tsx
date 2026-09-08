@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, BadgeCheck, Calendar } from "lucide-react";
+import { BadgeCheck, Calendar } from "lucide-react";
 
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { requireProfileUser, getProfileStats } from "@/lib/db/profile";
@@ -19,15 +19,7 @@ export default async function ProfilePage() {
   const memberSince = formatLongDate(user.createdAt);
 
   return (
-    <main className="mx-auto max-w-2xl p-6">
-      <Link
-        href="/dashboard"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="size-4" />
-        Back to dashboard
-      </Link>
-
+    <div className="mx-auto max-w-2xl">
       <div className="flex items-center gap-4">
         <UserAvatar
           name={user.name}
@@ -77,6 +69,6 @@ export default async function ProfilePage() {
           </Link>
         </div>
       </section>
-    </main>
+    </div>
   );
 }
