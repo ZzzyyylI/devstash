@@ -19,6 +19,7 @@ import { textareaClass } from "@/components/items/item-form/field-styles";
 import { ItemContentField } from "@/components/items/item-form/ItemContentField";
 import { LanguageSelect } from "@/components/items/item-form/LanguageSelect";
 import { CollectionPicker } from "@/components/items/item-form/CollectionPicker";
+import { DescribeButton } from "@/components/items/item-form/DescribeButton";
 import { SuggestTagsButton } from "@/components/items/item-form/SuggestTagsButton";
 import {
   Dialog,
@@ -231,7 +232,22 @@ export function NewItemDialog({
             />
           </Field>
 
-          <Field label="Description" error={fieldErrors.description}>
+          <Field
+            label="Description"
+            error={fieldErrors.description}
+            headerRight={
+              <DescribeButton
+                isPro={isPro}
+                type={form.type}
+                title={form.title}
+                content={showContent ? form.content : null}
+                url={showUrl ? form.url : null}
+                language={showLanguage ? form.language : null}
+                description={form.description}
+                onGenerate={(description) => set("description", description)}
+              />
+            }
+          >
             <textarea
               value={form.description}
               onChange={(event) => set("description", event.target.value)}

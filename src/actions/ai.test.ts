@@ -8,6 +8,11 @@ vi.mock("@/auth", () => ({ auth }));
 const generateAutoTagsQuery = vi.fn();
 vi.mock("@/lib/ai/auto-tags", () => ({ generateAutoTags: generateAutoTagsQuery }));
 
+const generateItemDescriptionQuery = vi.fn();
+vi.mock("@/lib/ai/description", () => ({
+  generateItemDescription: generateItemDescriptionQuery,
+}));
+
 const isAiConfigured = vi.fn();
 vi.mock("@/lib/ai/client", () => ({ isAiConfigured }));
 
@@ -18,11 +23,12 @@ vi.mock("@/lib/rate-limit", () => ({
   tooManyAttemptsMessage: () => "Too many attempts. Try again later.",
 }));
 
-const { generateAutoTags } = await import("@/actions/ai");
+const { generateAutoTags, generateItemDescription } = await import("@/actions/ai");
 
 beforeEach(() => {
   auth.mockReset();
   generateAutoTagsQuery.mockReset();
+  generateItemDescriptionQuery.mockReset();
   isAiConfigured.mockReset();
   checkUserRateLimit.mockReset();
 
@@ -30,6 +36,7 @@ beforeEach(() => {
   isAiConfigured.mockReturnValue(true);
   checkUserRateLimit.mockResolvedValue({ success: true, remaining: 19, reset: 0 });
   generateAutoTagsQuery.mockResolvedValue(["react", "hooks"]);
+  generateItemDescriptionQuery.mockResolvedValue("A hook that debounces a value.");
 });
 
 describe("generateAutoTags action", () => {
@@ -117,6 +124,115 @@ describe("generateAutoTags action", () => {
     expect(result).toEqual({
       success: false,
       error: "Couldn't suggest tags right now. Try again in a moment.",
+    });
+  });
+});
+
+describe("generateItemDescription action", () => {
+  const payload = { title: "useDebounce", type: "snippet" };
+
+  it("rejects an unauthenticated caller without calling OpenAI", async () => {
+    auth.mockResolvedValue(null);
+
+    const result = await generateItemDescription(payload);
+
+    expect(result).toEqual({ success: false, error: "You must be signed in." });
+    expect(generateItemDescriptionQuery).not.toHaveBeenCalled();
+  });
+
+  it("rejects a free (non-Pro) user with an upgrade message", async () => {
+    auth.mockResolvedValue({ user: { id: "user_1", isPro: false } });
+
+    const result = await generateItemDescription(payload);
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toMatch(/Pro/);
+    expect(generateItemDescriptionQuery).not.toHaveBeenCalled();
+  });
+
+  it("returns an error when AI is not configured", async () => {
+    isAiConfigured.mockReturnValue(false);
+
+    const result = await generateItemDescription(payload);
+
+    expect(result).toEqual({
+      success: false,
+      error: "AI features aren't available right now.",
+    });
+    expect(generateItemDescriptionQuery).not.toHaveBeenCalled();
+  });
+
+  it("returns the throttle message when rate limited", async () => {
+    checkUserRateLimit.mockResolvedValue({
+      success: false,
+      remaining: 0,
+      reset: Date.now() + 60_000,
+    });
+
+    const result = await generateItemDescription(payload);
+
+    expect(result).toEqual({
+      success: false,
+      error: "Too many attempts. Try again later.",
+    });
+    expect(generateItemDescriptionQuery).not.toHaveBeenCalled();
+  });
+
+  it("returns field errors for an empty title", async () => {
+    const result = await generateItemDescription({ title: "   ", type: "note" });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.fieldErrors?.title?.length).toBeGreaterThan(0);
+    }
+    expect(generateItemDescriptionQuery).not.toHaveBeenCalled();
+  });
+
+  it("drafts a description for the validated + normalised payload", async () => {
+    const result = await generateItemDescription({
+      title: "  useDebounce  ",
+      type: "  snippet  ",
+      content: "  export const x = 1  ",
+      language: "  typescript ",
+    });
+
+    expect(checkUserRateLimit).toHaveBeenCalledWith({
+      name: "ai:description",
+      userId: "user_1",
+      limit: 20,
+      window: "1 h",
+    });
+    expect(generateItemDescriptionQuery).toHaveBeenCalledWith({
+      title: "useDebounce",
+      type: "snippet",
+      content: "export const x = 1",
+      url: null,
+      language: "typescript",
+      description: null,
+    });
+    expect(result).toEqual({
+      success: true,
+      data: { description: "A hook that debounces a value." },
+    });
+  });
+
+  it("returns a friendly error when the model gives nothing usable", async () => {
+    generateItemDescriptionQuery.mockResolvedValue("");
+
+    const result = await generateItemDescription(payload);
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toMatch(/Add a bit more detail/);
+  });
+
+  it("returns a generic error when the helper throws", async () => {
+    generateItemDescriptionQuery.mockRejectedValue(new Error("openai down"));
+
+    const result = await generateItemDescription(payload);
+
+    expect(result).toEqual({
+      success: false,
+      error: "Couldn't draft a description right now. Try again in a moment.",
     });
   });
 });

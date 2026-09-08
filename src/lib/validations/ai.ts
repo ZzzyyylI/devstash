@@ -1,20 +1,44 @@
 import { z } from "zod";
 
 /**
- * Zod schema for the `generateAutoTags` server action payload.
+ * Zod schemas for the AI server-action payloads.
  *
- * The action re-validates here before calling OpenAI — the create dialog / edit
- * form only pass through whatever the user has typed so far. `content` is
- * optional (a link or image item may only have a title + description) and is
- * truncated server-side before the API call.
+ * Each action re-validates here before calling OpenAI — the create dialog / edit
+ * form only pass through whatever the user has typed so far.
+ */
+
+/** Trimmed free text where "", whitespace, null and undefined all collapse to null. */
+const optionalText = z
+  .union([z.string(), z.null()])
+  .optional()
+  .transform((value) => (value ?? "").trim() || null);
+
+/**
+ * `generateAutoTags` payload. `content` is optional (a link or image item may
+ * only have a title + description) and is truncated server-side before the API
+ * call.
  */
 export const autoTagSchema = z.object({
   title: z.string().trim().min(1, "Add a title first").max(200),
-  content: z
-    .union([z.string(), z.null()])
-    .optional()
-    .transform((value) => (value ?? "").trim() || null),
+  content: optionalText,
 });
 
 /** Validated + normalised auto-tag payload. */
 export type AutoTagInput = z.infer<typeof autoTagSchema>;
+
+/**
+ * `generateItemDescription` payload. `title` + `type` are required (every form
+ * knows both); `content` / `url` / `language` / `description` are whatever the
+ * in-progress form happens to hold and collapse to null when blank.
+ */
+export const describeItemSchema = z.object({
+  title: z.string().trim().min(1, "Add a title first").max(200),
+  type: z.string().trim().min(1, "Pick an item type").max(50),
+  content: optionalText,
+  url: optionalText,
+  language: optionalText,
+  description: optionalText,
+});
+
+/** Validated + normalised describe-item payload. */
+export type DescribeItemInput = z.infer<typeof describeItemSchema>;

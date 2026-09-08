@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { autoTagSchema } from "@/lib/validations/ai";
+import { autoTagSchema, describeItemSchema } from "@/lib/validations/ai";
 
 describe("autoTagSchema", () => {
   it("accepts a title with content and trims both", () => {
@@ -28,6 +28,56 @@ describe("autoTagSchema", () => {
   it("rejects an over-long title", () => {
     expect(
       autoTagSchema.safeParse({ title: "x".repeat(201) }).success,
+    ).toBe(false);
+  });
+});
+
+describe("describeItemSchema", () => {
+  it("trims the required fields and normalises the optional ones", () => {
+    const parsed = describeItemSchema.parse({
+      title: "  useDebounce hook  ",
+      type: "  snippet  ",
+      content: "  export function useDebounce() {}  ",
+      url: "  ",
+      language: "  typescript ",
+      description: null,
+    });
+    expect(parsed).toEqual({
+      title: "useDebounce hook",
+      type: "snippet",
+      content: "export function useDebounce() {}",
+      url: null,
+      language: "typescript",
+      description: null,
+    });
+  });
+
+  it("collapses missing optional fields to null", () => {
+    const parsed = describeItemSchema.parse({ title: "x", type: "note" });
+    expect(parsed).toEqual({
+      title: "x",
+      type: "note",
+      content: null,
+      url: null,
+      language: null,
+      description: null,
+    });
+  });
+
+  it("requires a non-empty title and type", () => {
+    expect(
+      describeItemSchema.safeParse({ title: "   ", type: "note" }).success,
+    ).toBe(false);
+    expect(
+      describeItemSchema.safeParse({ title: "x", type: "  " }).success,
+    ).toBe(false);
+    expect(describeItemSchema.safeParse({ title: "x" }).success).toBe(false);
+  });
+
+  it("rejects an over-long title", () => {
+    expect(
+      describeItemSchema.safeParse({ title: "x".repeat(201), type: "note" })
+        .success,
     ).toBe(false);
   });
 });
