@@ -1,18 +1,170 @@
 # Current Feature
 
-_None — ready for the next feature._
+Components folder refactor — break up the largest components and pull the
+duplicated JSX / handlers into shared pieces.
 
 ## Status
 
-Completed
+Not Started — this is a scan write-up. Pick a tier (or a subset) before starting;
+each item is independently shippable.
 
 ## Goals
 
-_None._
+From a full read of `src/components/**` (43 files, ~8.4k lines). Two axes:
+**(A) split large components**, **(B) remove duplication**. Ordered by
+payoff ÷ risk.
+
+### Tier 1 — high payoff, touches the hottest files
+
+1. **Editor shell dedup — `CodeEditor.tsx` (290) + `MarkdownEditor.tsx` (382).**
+   These share ~120 lines of near-verbatim JSX and four twin helpers. Extract to
+   `src/components/items/editor/`:
+   - `<EditorShell>` — the `rounded-lg border border-[#333] bg-[#1e1e1e]` wrapper
+     + the `bg-[#2d2d2d]/#252526` header bar with a left slot (tabs / window
+     dots) and a right slot (controls).
+   - `<EditorTab>` — merge `MarkdownEditor`'s `TabButton` and `CodeEditor`'s
+     `HeaderTab` (identical bar one being `py-1` vs `py-0.5`).
+   - `<EditorCopyButton>` — the dark `text-white/50` Copy button with the
+     Check/Copy swap (byte-identical in both; a third, card-styled copy lives in
+     `CopyButton.tsx`).
+   - `<AiEditorButton>` — the Pro-gated `Sparkles`/`Loader2` button ↔ `Crown`
+     span. "Explain" and "Optimize" are the same control with a different verb +
+     click handler + "…ing" label.
+   - `<MarkdownPanel>` — the `markdown-preview` + `ReactMarkdown`/`remarkGfm`
+     block (appears 3× across the two files).
+   - shared `MIN_HEIGHT`/`MAX_HEIGHT` + the "grow-to-content, clamp" logic.
+   - `useAiEditorPanel()` — the `suggestion|explanation` + `pending` + tab-swap +
+     `toast` state machine (same shape in `handleOptimize` / `handleExplain`).
+
+2. **Item form field-stack dedup — `NewItemDialog.tsx` (352) + `ItemEditForm.tsx`
+   (202).** The Title / Description(+`DescribeButton`) / Language(`LanguageSelect`)
+   / Content(`ItemContentField`) / URL / Tags(+`SuggestTagsButton`) /
+   `CollectionPicker` block is ~90% identical. Extract `<ItemFields>` driven by
+   `itemTypeFields(type)` + a `{ values, set, fieldErrors }` bag. The tag-append
+   closure `prev.trim() ? \`${prev.replace(/,\s*$/, "")}, ${tag}\` : tag` is
+   byte-identical in both — move into `<ItemFields>` (or a `useTagsInput` hook).
+   Also split the `<TypePicker>` pill row (~55 lines) out of `NewItemDialog`.
+   `NewItemDialog` keeps the Dialog chrome + type picker + file upload;
+   `ItemEditForm` keeps the Save/Cancel bar.
+
+3. **Collection form dialog dedup — `NewCollectionDialog.tsx` (153) +
+   `EditCollectionDialog.tsx` (170).** ~90% identical (imports, `emptyForm`/seed,
+   `set`, `handleSubmit` shape, the entire Dialog JSX with Name + Description
+   `Field`s + footer). Collapse to one `<CollectionFormDialog mode>` **or** a
+   shared `<CollectionFields>` + `useCollectionForm(mode, collection?)` hook
+   (URL/method/messages/`onSaved` are the only deltas). ~320 → ~120 lines.
+
+4. **`ItemDrawer.tsx` (429) — split the god component.** Extract:
+   - `<ItemDrawerActions>` — the Favorite/Pin/Copy/Edit/Delete `ActionButton`
+     row.
+   - `<ItemDrawerBody>` — the read view (Description / error / `DetailSkeleton` /
+     content-editor switch / URL / Tags / Collections / Details). ~130 lines.
+   - `<ItemContentView>` — the `isCodeItemType ? CodeEditor : isMarkdownItemType ?
+     MarkdownEditor : <pre>` switch, which is **also** in `ItemContentField.tsx`
+     (edit side) — one shared component, read/edit via a `readOnly` prop.
+   - `useItemDrawerActions(detail, summary, onSaved, onDeleted)` — the
+     favorite-toggle / apply-optimized-prompt / delete handlers + their
+     transient state (currently ~9 `useState` in the component).
+   - fold the delete confirm into the shared `<ConfirmDeleteDialog>` from B‑item 6.
+
+### Tier 2 — clear dedup, small blast radius
+
+5. **`<ItemDrawer>` host wiring.** `useItemDrawer()` + the 8‑prop `<ItemDrawer …/>`
+   spread is verbatim in `ItemBrowser`, `CommandPalette`, `FavoritesList`. Give
+   `<ItemDrawer>` a single `drawer={drawer}` prop (pass the hook object) + `isPro`,
+   or wrap both in `<ItemDrawerHost isPro>{(drawer) => …}</ItemDrawerHost>`.
+
+6. **`<ConfirmDeleteDialog>`.** `ItemDrawer`'s delete `AlertDialog` and
+   `DeleteCollectionDialog` share the exact destructive `AlertDialogAction`
+   class string + `data-variant="destructive"` + `onClick` `preventDefault` +
+   `{deleting ? "Deleting…" : "Delete"}`. Extract
+   `<ConfirmDeleteDialog open onOpenChange title description confirmLabel
+   pending onConfirm>`.
+
+7. **`postJsonError(status, data, fallback)` in `src/lib/post-json.ts`.** The
+   `status === 0 ? "Network error. Please try again." : (data?.error ?? "Could
+   not …")` ternary is in `useCollectionFavorite`, `DeleteCollectionDialog`,
+   `NewCollectionDialog`, `EditCollectionDialog`, `RegisterForm`,
+   `ResetPasswordForm`, `ChangePasswordForm` (and a variant in `BillingSection`).
+
+8. **`selectClass` → `item-form/field-styles.ts`** (next to `textareaClass`).
+   Defined twice today — `EditorPreferencesForm.tsx` (`h-8`) and
+   `LanguageSelect.tsx` (`h-9`), otherwise identical. Ideally a `<Select>` UI
+   primitive alongside `Input`.
+
+9. **`useAiAction(action)` + `<AiActionButton>`.** `SuggestTagsButton` and
+   `DescribeButton` share: `useState(pending)` → `if (!isPro) return null` →
+   `handleClick` (`if pending return; setPending(true); const result = await
+   action(); setPending(false); if (!result.success) { toast.error; return }`) →
+   ghost `<Button>` with `Loader2 animate-spin`/`Sparkles` + verb/"…ing" +
+   `disabled={pending || title.trim() === ""}`. Same shape as the editor
+   Explain/Optimize handlers (B‑item 1).
+
+10. **`toItemDetailJson(data)` helper** (next to `item-detail-json.ts`). The
+    `{ ...data, createdAt: new Date(data.createdAt).toISOString(), updatedAt:
+    new Date(data.updatedAt).toISOString() }` remap is in `ItemDrawer` ×3 +
+    `ItemEditForm` ×1.
+
+11. **`<CollectionMutationDialogs>`.** `CollectionActionsMenu` and
+    `CollectionDetailActions` both end with the same `<EditCollectionDialog>` +
+    `<DeleteCollectionDialog>` pair + `editOpen`/`deleteOpen` state +
+    `useCollectionFavorite`; only the `onDeleted` target differs
+    (`router.refresh()` vs `router.push("/collections")`).
+
+### Tier 3 — card/primitive tidy, cosmetic risk only
+
+12. **`<ItemFlags item>`** — `{item.isPinned && <Pin…/>}{item.isFavorite &&
+    <Star … fill-amber-400/>}` is verbatim in `ItemCard`, `ItemRow`, `ImageCard`,
+    `FileRow`.
+13. **`<IconTile Icon size>`** — `flex size-9 shrink-0 items-center justify-center
+    rounded-lg bg-muted` + `<Icon className="size-4 …">` in `ItemCard`, `ItemRow`,
+    `FileRow`, `ItemDrawer` (`size-10`).
+14. **`<Chip>` / `<ChipList>`** — `rounded bg-muted px-1.5 py-0.5 text-[10px]/
+    text-xs text-muted-foreground` tag pills in `ItemCard`, `ItemRow`, `ItemDrawer`
+    (tags + collections), `FavoritesList` (badge). 
+15. **`ItemCard` ↔ `ItemRow`** — structurally the same (accent-border card, icon
+    tile, title+flags+date, description clamp, chips); could be one component with
+    a `dense` prop. Lower confidence — keep separate if the divergence grows.
+16. **Auth field holdouts** — migrate `SignInForm`, `ResetPasswordForm`,
+    `ForgotPasswordForm` from hand-rolled `space-y-1.5` + `<label>` + error `<p>`
+    to the existing `<AuthField>`. Add `<SubmitButton pending pendingLabel>` (the
+    `w-full` submit is in all 4 auth forms + `ChangePasswordForm`) and an
+    `<AuthFormFooter>` for the repeated "Back to sign in" / "Create one" line.
+17. **`EditorPreferencesForm.tsx` (174)** — five near-identical `<Row>` blocks →
+    a data map (`{label, hint, control}`). Move `Row` + `Toggle` to shared
+    modules; `Toggle` + the `aria-pressed` segmented toggles in `BillingSection`
+    and `PricingPlans` are 3 hand-rolled switches → one `<Switch>` / `<SegmentedToggle>`.
+18. **`Sidebar.tsx` (275)** — move the inline `SectionHeader` / `CollectionGroup`
+    / `ActiveBar` into `src/components/dashboard/sidebar/`; extract a `<TypeRow>`
+    (~35-line `<li>`). Composition-only main file.
+19. **`ChaosOrderFlow.tsx` (277)** — split out `DashboardPreview` + a
+    `useChaosPhysics` hook. Low traffic / isolated — lowest priority.
+20. **`FileUpload.tsx` (237)** — not fully audited in the scan; likely splits
+    into `<DropZone>` + `<UploadProgress>` + an orchestration hook. Re-read
+    before scoping.
 
 ## Notes
 
-_None._
+- No behaviour changes intended anywhere — this is structure only. The Vitest
+  suite covers `src/{actions,lib}` only, so component splits get no unit
+  coverage; verify each in the browser (dashboard lists, item drawer
+  read+edit+delete, New Item / New Collection / Edit Collection dialogs, the
+  `/favorites` + `/collections/[id]` + `/settings` pages, both auth forms).
+- Suggested new dirs: `src/components/items/editor/` (Tier 1.1),
+  `src/components/items/item-form/` already exists (Tier 1.2 lands there),
+  `src/components/dashboard/sidebar/` (Tier 3.18). Shared primitives that aren't
+  item-specific (`<ConfirmDeleteDialog>`, `<Switch>`, `<Select>`, `<Chip>`) →
+  `src/components/ui/`.
+- Do **not** bundle this with the `src/lib/actions/` work already on `main`
+  (that was a separate feature).
+- Related long-standing deferral (from several past features): a shared
+  `ListPageShell` / `BackLink` / `pluralize()` across `/items/[type]`,
+  `/collections`, `/collections/[id]` — adjacent but out of scope here (those are
+  route files, not `src/components`).
+- Pre-existing unrelated dirty files on the tree (`.env.example`,
+  `prisma/seed.ts`, `scripts/test-db.ts`, `src/app/{register,sign-in}/page.tsx`,
+  `src/auth.config.ts`, `src/proxy.ts`; untracked `.claude/agents/*`,
+  `scripts/reset-oauth-user.ts`) stay **excluded** from any commit here.
 
 ## History
 
