@@ -1,170 +1,18 @@
 # Current Feature
 
-Components folder refactor — break up the largest components and pull the
-duplicated JSX / handlers into shared pieces.
+_None — ready for the next feature._
 
 ## Status
 
-Not Started — this is a scan write-up. Pick a tier (or a subset) before starting;
-each item is independently shippable.
+Completed
 
 ## Goals
 
-From a full read of `src/components/**` (43 files, ~8.4k lines). Two axes:
-**(A) split large components**, **(B) remove duplication**. Ordered by
-payoff ÷ risk.
-
-### Tier 1 — high payoff, touches the hottest files
-
-1. **Editor shell dedup — `CodeEditor.tsx` (290) + `MarkdownEditor.tsx` (382).**
-   These share ~120 lines of near-verbatim JSX and four twin helpers. Extract to
-   `src/components/items/editor/`:
-   - `<EditorShell>` — the `rounded-lg border border-[#333] bg-[#1e1e1e]` wrapper
-     + the `bg-[#2d2d2d]/#252526` header bar with a left slot (tabs / window
-     dots) and a right slot (controls).
-   - `<EditorTab>` — merge `MarkdownEditor`'s `TabButton` and `CodeEditor`'s
-     `HeaderTab` (identical bar one being `py-1` vs `py-0.5`).
-   - `<EditorCopyButton>` — the dark `text-white/50` Copy button with the
-     Check/Copy swap (byte-identical in both; a third, card-styled copy lives in
-     `CopyButton.tsx`).
-   - `<AiEditorButton>` — the Pro-gated `Sparkles`/`Loader2` button ↔ `Crown`
-     span. "Explain" and "Optimize" are the same control with a different verb +
-     click handler + "…ing" label.
-   - `<MarkdownPanel>` — the `markdown-preview` + `ReactMarkdown`/`remarkGfm`
-     block (appears 3× across the two files).
-   - shared `MIN_HEIGHT`/`MAX_HEIGHT` + the "grow-to-content, clamp" logic.
-   - `useAiEditorPanel()` — the `suggestion|explanation` + `pending` + tab-swap +
-     `toast` state machine (same shape in `handleOptimize` / `handleExplain`).
-
-2. **Item form field-stack dedup — `NewItemDialog.tsx` (352) + `ItemEditForm.tsx`
-   (202).** The Title / Description(+`DescribeButton`) / Language(`LanguageSelect`)
-   / Content(`ItemContentField`) / URL / Tags(+`SuggestTagsButton`) /
-   `CollectionPicker` block is ~90% identical. Extract `<ItemFields>` driven by
-   `itemTypeFields(type)` + a `{ values, set, fieldErrors }` bag. The tag-append
-   closure `prev.trim() ? \`${prev.replace(/,\s*$/, "")}, ${tag}\` : tag` is
-   byte-identical in both — move into `<ItemFields>` (or a `useTagsInput` hook).
-   Also split the `<TypePicker>` pill row (~55 lines) out of `NewItemDialog`.
-   `NewItemDialog` keeps the Dialog chrome + type picker + file upload;
-   `ItemEditForm` keeps the Save/Cancel bar.
-
-3. **Collection form dialog dedup — `NewCollectionDialog.tsx` (153) +
-   `EditCollectionDialog.tsx` (170).** ~90% identical (imports, `emptyForm`/seed,
-   `set`, `handleSubmit` shape, the entire Dialog JSX with Name + Description
-   `Field`s + footer). Collapse to one `<CollectionFormDialog mode>` **or** a
-   shared `<CollectionFields>` + `useCollectionForm(mode, collection?)` hook
-   (URL/method/messages/`onSaved` are the only deltas). ~320 → ~120 lines.
-
-4. **`ItemDrawer.tsx` (429) — split the god component.** Extract:
-   - `<ItemDrawerActions>` — the Favorite/Pin/Copy/Edit/Delete `ActionButton`
-     row.
-   - `<ItemDrawerBody>` — the read view (Description / error / `DetailSkeleton` /
-     content-editor switch / URL / Tags / Collections / Details). ~130 lines.
-   - `<ItemContentView>` — the `isCodeItemType ? CodeEditor : isMarkdownItemType ?
-     MarkdownEditor : <pre>` switch, which is **also** in `ItemContentField.tsx`
-     (edit side) — one shared component, read/edit via a `readOnly` prop.
-   - `useItemDrawerActions(detail, summary, onSaved, onDeleted)` — the
-     favorite-toggle / apply-optimized-prompt / delete handlers + their
-     transient state (currently ~9 `useState` in the component).
-   - fold the delete confirm into the shared `<ConfirmDeleteDialog>` from B‑item 6.
-
-### Tier 2 — clear dedup, small blast radius
-
-5. **`<ItemDrawer>` host wiring.** `useItemDrawer()` + the 8‑prop `<ItemDrawer …/>`
-   spread is verbatim in `ItemBrowser`, `CommandPalette`, `FavoritesList`. Give
-   `<ItemDrawer>` a single `drawer={drawer}` prop (pass the hook object) + `isPro`,
-   or wrap both in `<ItemDrawerHost isPro>{(drawer) => …}</ItemDrawerHost>`.
-
-6. **`<ConfirmDeleteDialog>`.** `ItemDrawer`'s delete `AlertDialog` and
-   `DeleteCollectionDialog` share the exact destructive `AlertDialogAction`
-   class string + `data-variant="destructive"` + `onClick` `preventDefault` +
-   `{deleting ? "Deleting…" : "Delete"}`. Extract
-   `<ConfirmDeleteDialog open onOpenChange title description confirmLabel
-   pending onConfirm>`.
-
-7. **`postJsonError(status, data, fallback)` in `src/lib/post-json.ts`.** The
-   `status === 0 ? "Network error. Please try again." : (data?.error ?? "Could
-   not …")` ternary is in `useCollectionFavorite`, `DeleteCollectionDialog`,
-   `NewCollectionDialog`, `EditCollectionDialog`, `RegisterForm`,
-   `ResetPasswordForm`, `ChangePasswordForm` (and a variant in `BillingSection`).
-
-8. **`selectClass` → `item-form/field-styles.ts`** (next to `textareaClass`).
-   Defined twice today — `EditorPreferencesForm.tsx` (`h-8`) and
-   `LanguageSelect.tsx` (`h-9`), otherwise identical. Ideally a `<Select>` UI
-   primitive alongside `Input`.
-
-9. **`useAiAction(action)` + `<AiActionButton>`.** `SuggestTagsButton` and
-   `DescribeButton` share: `useState(pending)` → `if (!isPro) return null` →
-   `handleClick` (`if pending return; setPending(true); const result = await
-   action(); setPending(false); if (!result.success) { toast.error; return }`) →
-   ghost `<Button>` with `Loader2 animate-spin`/`Sparkles` + verb/"…ing" +
-   `disabled={pending || title.trim() === ""}`. Same shape as the editor
-   Explain/Optimize handlers (B‑item 1).
-
-10. **`toItemDetailJson(data)` helper** (next to `item-detail-json.ts`). The
-    `{ ...data, createdAt: new Date(data.createdAt).toISOString(), updatedAt:
-    new Date(data.updatedAt).toISOString() }` remap is in `ItemDrawer` ×3 +
-    `ItemEditForm` ×1.
-
-11. **`<CollectionMutationDialogs>`.** `CollectionActionsMenu` and
-    `CollectionDetailActions` both end with the same `<EditCollectionDialog>` +
-    `<DeleteCollectionDialog>` pair + `editOpen`/`deleteOpen` state +
-    `useCollectionFavorite`; only the `onDeleted` target differs
-    (`router.refresh()` vs `router.push("/collections")`).
-
-### Tier 3 — card/primitive tidy, cosmetic risk only
-
-12. **`<ItemFlags item>`** — `{item.isPinned && <Pin…/>}{item.isFavorite &&
-    <Star … fill-amber-400/>}` is verbatim in `ItemCard`, `ItemRow`, `ImageCard`,
-    `FileRow`.
-13. **`<IconTile Icon size>`** — `flex size-9 shrink-0 items-center justify-center
-    rounded-lg bg-muted` + `<Icon className="size-4 …">` in `ItemCard`, `ItemRow`,
-    `FileRow`, `ItemDrawer` (`size-10`).
-14. **`<Chip>` / `<ChipList>`** — `rounded bg-muted px-1.5 py-0.5 text-[10px]/
-    text-xs text-muted-foreground` tag pills in `ItemCard`, `ItemRow`, `ItemDrawer`
-    (tags + collections), `FavoritesList` (badge). 
-15. **`ItemCard` ↔ `ItemRow`** — structurally the same (accent-border card, icon
-    tile, title+flags+date, description clamp, chips); could be one component with
-    a `dense` prop. Lower confidence — keep separate if the divergence grows.
-16. **Auth field holdouts** — migrate `SignInForm`, `ResetPasswordForm`,
-    `ForgotPasswordForm` from hand-rolled `space-y-1.5` + `<label>` + error `<p>`
-    to the existing `<AuthField>`. Add `<SubmitButton pending pendingLabel>` (the
-    `w-full` submit is in all 4 auth forms + `ChangePasswordForm`) and an
-    `<AuthFormFooter>` for the repeated "Back to sign in" / "Create one" line.
-17. **`EditorPreferencesForm.tsx` (174)** — five near-identical `<Row>` blocks →
-    a data map (`{label, hint, control}`). Move `Row` + `Toggle` to shared
-    modules; `Toggle` + the `aria-pressed` segmented toggles in `BillingSection`
-    and `PricingPlans` are 3 hand-rolled switches → one `<Switch>` / `<SegmentedToggle>`.
-18. **`Sidebar.tsx` (275)** — move the inline `SectionHeader` / `CollectionGroup`
-    / `ActiveBar` into `src/components/dashboard/sidebar/`; extract a `<TypeRow>`
-    (~35-line `<li>`). Composition-only main file.
-19. **`ChaosOrderFlow.tsx` (277)** — split out `DashboardPreview` + a
-    `useChaosPhysics` hook. Low traffic / isolated — lowest priority.
-20. **`FileUpload.tsx` (237)** — not fully audited in the scan; likely splits
-    into `<DropZone>` + `<UploadProgress>` + an orchestration hook. Re-read
-    before scoping.
+_None._
 
 ## Notes
 
-- No behaviour changes intended anywhere — this is structure only. The Vitest
-  suite covers `src/{actions,lib}` only, so component splits get no unit
-  coverage; verify each in the browser (dashboard lists, item drawer
-  read+edit+delete, New Item / New Collection / Edit Collection dialogs, the
-  `/favorites` + `/collections/[id]` + `/settings` pages, both auth forms).
-- Suggested new dirs: `src/components/items/editor/` (Tier 1.1),
-  `src/components/items/item-form/` already exists (Tier 1.2 lands there),
-  `src/components/dashboard/sidebar/` (Tier 3.18). Shared primitives that aren't
-  item-specific (`<ConfirmDeleteDialog>`, `<Switch>`, `<Select>`, `<Chip>`) →
-  `src/components/ui/`.
-- Do **not** bundle this with the `src/lib/actions/` work already on `main`
-  (that was a separate feature).
-- Related long-standing deferral (from several past features): a shared
-  `ListPageShell` / `BackLink` / `pluralize()` across `/items/[type]`,
-  `/collections`, `/collections/[id]` — adjacent but out of scope here (those are
-  route files, not `src/components`).
-- Pre-existing unrelated dirty files on the tree (`.env.example`,
-  `prisma/seed.ts`, `scripts/test-db.ts`, `src/app/{register,sign-in}/page.tsx`,
-  `src/auth.config.ts`, `src/proxy.ts`; untracked `.claude/agents/*`,
-  `scripts/reset-oauth-user.ts`) stay **excluded** from any commit here.
+_None._
 
 ## History
 
@@ -222,3 +70,4 @@ payoff ÷ risk.
 - AI Prompt Optimization — Per `context/current-feature.md`. **Fourth and final AI feature** in `docs/ai-integration-plan.md` (§4.4) — a Pro-only **Optimize** control in the item drawer's read-view prompt editor that drafts a clearer, more specific rewrite of a `prompt` item's text and shows it behind an Original / Optimized tab toggle, then asks before applying. Placed exactly like the snippet/command **Explain** button. Not stored unless the user accepts. **`src/lib/ai/optimize-prompt.ts`**: `optimizePrompt({ title, content })` calls the OpenAI **Responses API** (`client.responses.create`, plain-text — no `json_object`, so the auto-tags "json"-in-input quirk doesn't apply) and returns `{ optimized: string; changed: boolean }`. Pure tested helpers: `truncateForOptimize` (`PROMPT_CONTENT_LIMIT = 6000`); `buildOptimizeInput` — folds the title into prose (`The saved prompt is titled "…"`, **not** a `Title:` label line — `gpt-5-nano` echoes a labelled line back as a prefix) + the truncated prompt under `Current prompt:` + a closing instruction naming the sentinel; `sanitizeOptimizedPrompt` — normalises line endings, collapses blank runs, strips a wrapping ``` fence, strips a leading `Title:` line, **cuts from any line containing `PROMPT_ALREADY_OPTIMAL` onward** (the closing-scaffold echo — a real prompt never contains the sentinel), clips to `MAX_OPTIMIZED_PROMPT_LENGTH = 4000` on a boundary + `…`; `stripEchoedTitle(text, title)` — drops a leading line equal to the item title (colon/case tolerant); `interpretOptimizeResponse(raw, original, title)` — checks the sentinel against the **raw** reply first (sanitize strips it), else sanitises + `stripEchoedTitle`, then `"" → { optimized: "", changed: false }`, `=== trimmed original → changed: false`, else `changed: true`. `PROMPT_ALREADY_OPTIMAL` sentinel (model replies with exactly this when it can't improve the prompt) → `{ optimized: <original>, changed: false }`. **`src/lib/validations/ai.ts`**: `optimizePromptSchema` (`title` req ≤ 200, `content` req non-empty — `z.string().trim().min(1)`, like `explainCodeSchema`). **`src/actions/ai.ts`** (`"use server"`) `optimizePrompt(input)`: same gate order as `explainCode` — `auth()` → `session.user.isPro` (`PRO_OPTIMIZE_MESSAGE`) → `isAiConfigured()` → `checkUserRateLimit({ name: "ai:optimize-prompt", … AI_RATE_LIMIT })` (shares the 20/h per-user AI budget) → `optimizePromptSchema.safeParse` → query (aliased `optimizePromptQuery`); empty `optimized` → friendly "try again" error; `ActionResult<OptimizePromptResult>` envelope + `console.error` + generic catch. **UI** — the Optimize affordance lives **inside `MarkdownEditor`** via a new optional `optimize?: { title; typeName; isPro; onApply }` prop (forms pass nothing → unchanged; mirrors `CodeEditor`'s `explain` prop). When present: the header (next to Copy) shows a Pro-gated control — Pro users get a live ghost **Optimize** `<button>` (`Sparkles` → `Loader2` "Optimizing…"; disabled while pending/applying or when `draft` is blank; label becomes **Regenerate** once a suggestion exists), free users get a non-interactive `<span>` with a `Crown` icon + `title="AI features require Pro subscription"`. Once `suggestion !== null`, the Write/Preview tabs are replaced by **Original / Optimized** `TabButton`s; the Optimized panel renders the rewrite as Markdown (`react-markdown` + `remark-gfm`, same `markdown-preview` container + `MAX_HEIGHT` scroll as the Write/Preview body) with a footer bar: if `changed`, "Replace the saved prompt with this version?" + **Discard** / **Use this prompt** (`applying` → "Saving…"); if not `changed`, "No changes suggested — this prompt is already clear and specific." + **Dismiss**. `handleOptimize` calls the `optimizePrompt` action with `{ title, content: draft }`, `toast.error` on failure, `toast.info("This prompt already looks well-optimized.")` when `!changed`, flips to the Optimized tab on success. Copy button copies the suggestion while on the Optimized tab, else `draft`. **`src/components/items/ItemDrawer.tsx`**: the read-view `MarkdownEditor` (rendered for `isMarkdownItemType` — `prompt` / `note`) gains `key={detail.id}` (switching items clears suggestion/tab state) and `optimize={…}` **only when `detail.type.name === "prompt"`** (`isPro` was already a drawer prop from AI Auto-Tagging). New `handleApplyOptimizedPrompt(optimized)` — the `onApply` callback — rebuilds the full `updateItem` payload from `detail` (title/description/tags/language/url/collectionIds echoed unchanged, **only `content` replaced**), calls the `updateItem` action, `toast.error`/return `false` on failure, else `toast.success("Prompt updated")` + `onSaved({ …result.data, createdAt/updatedAt → ISO })` (→ `useItemDrawer.handleSaved` folds it into `summary`/cache + `router.refresh()`) + return `true` so the editor closes its panel. Not wired into the create/edit forms (`ItemContentField` → `MarkdownEditor` without `optimize`). **Tests +26** → `npm run test` **403 pass / 44 files** (was 371 on the branch point... actual `main` baseline 371, prior working file said 371→): new `src/lib/ai/optimize-prompt.test.ts` (`truncateForOptimize` null/limit/passthrough; `buildOptimizeInput` title-in-prose + `Current prompt:` + closing line + sentinel + truncation; `sanitizeOptimizedPrompt` blank/`\r\n`/fence-strip/leading-`Title:`-strip/trailing-sentinel-cut/whole-reply-sentinel→""/well-formed passthrough/boundary-clip; `stripEchoedTitle` colon+case tolerant / real-content no-op / blank-title no-op; `interpretOptimizeResponse` sentinel→original+`changed:false` / identical→`changed:false` / different→`changed:true` / echoed-title strip / empty→`""`); `src/actions/ai.test.ts` +`optimizePrompt` block mirroring the other three actions (unauth / non-Pro / not-configured / rate-limited / empty-content → error + no query; happy path asserts `checkUserRateLimit` name `ai:optimize-prompt` + normalised `(title, content)` + `{ optimized, changed }`; empty `optimized` → friendly error; throw → generic — mocks `@/lib/ai/optimize-prompt`); `src/lib/validations/ai.test.ts` +`optimizePromptSchema` block (trims title+content, rejects empty title/content, rejects > 200 title). `npm run lint` clean (only the pre-existing `prototypes/homepage/script.js` unused-`i` warning), `npm run build` green. **Browser-verified** (Playwright, live dev server, real `OPENAI_API_KEY`; demo user temporarily `isPro=true` on the Neon `development` branch, reverted + DB re-seeded after — the `jwt()` callback re-reads `isPro` each `auth()` so a reload surfaces it): free/non-Pro → the prompt drawer's editor header shows the `Crown` "Optimize" span with the tooltip `title`, no live button; Pro, `Code review prompt` → **Optimize** → `Optimizing…` → Original/Optimized tabs + rewrite render inline, button becomes **Regenerate**, Original tab shows the untouched prompt, **Use this prompt** → "Prompt updated" toast + panel closes to Preview showing the new content + DB `content` updated / `updatedAt` bumped; Discard on another run → back to Preview unchanged; no console errors. First outputs echoed the title / trailing closing-instruction — fixed by the strengthened system prompt (title-in-prose, "return ONLY the improved prompt") + `stripEchoedTitle` + the sentinel-line cut in `sanitizeOptimizedPrompt`; a clean re-run produced a title-free, scaffold-free rewrite. Neon `development` restored (0 Pro users / 10 items / 3 collections — nothing persisted). **Deliberately excluded** from the commit (unrelated, pre-existing, still uncommitted on `main`): `.env.example`, `prisma/seed.ts`, `scripts/test-db.ts`, `src/app/{register,sign-in}/page.tsx`, `src/auth.config.ts`, `src/proxy.ts`; untracked `.claude/agents/ui-reviewer.md`, `scripts/reset-oauth-user.ts`. Deferred: structured `{ optimized, changes[] }` output with a "what changed" bullet list + side-by-side columns (the plan's richer §4.4 UX — this shipped the simpler Explain-style single-string + tab toggle); streaming the rewrite; a persisted optimization history; an Optimize affordance in the edit form; an `aiEnabled` prop so the control also hides when `OPENAI_API_KEY` is unset (today it shows for Pro users and toasts on error — consistent with Explain); `max_output_tokens` / `reasoning: { effort: "minimal" }` still unset; the long-standing `ListPageShell`/`BackLink`/`pluralize()` extraction; `feature/upgrade-flow` still needs its own `/feature complete`.
 - UI Layout Review & Fixes — Started from a `ui-reviewer` sub-agent + Playwright review (screenshots in the session scratchpad; findings + full prioritized list captured in this file's Notes before the reset). Shipped: **(Goal 3) persistent app shell** — new `src/app/(app)/` route group with the old `dashboard/layout.tsx` moved to `(app)/layout.tsx` (fn `DashboardLayout`→`AppLayout`, otherwise unchanged — still `force-dynamic` + `DashboardShell` + `EditorPreferencesProvider`); `git mv`d `dashboard`, `items`, `collections`, `favorites`, `settings`, `profile` under it so the sidebar + top bar now render on every drill-down page (URLs unchanged — route groups don't affect paths, so `src/proxy.ts` and every `<Link>` were untouched). Per-page cleanup: dropped the "Back to dashboard" links (+ dead `ArrowLeft`/`Link` imports) and the redundant outer `p-6` (the shell's `<main>` pads); `settings`/`profile` roots `<main>`→`<div>` (no nested `<main>`); kept "Back to collections" on `/collections/[id]`. **(Goal 1) sidebar active state** — `Sidebar.tsx` shared `ROW_BASE` (now includes `focus-visible:ring-2 focus-visible:ring-ring` — also closes a review a11y gap) + `ROW_ACTIVE` (`bg-sidebar-accent font-medium text-sidebar-foreground`); hover softened to `hover:bg-sidebar-accent/60` so hover ≠ active; new `<ActiveBar dotClass>` = an absolute 2px left bar tinted via `palette(color).dot`. Applied to Types rows (`pathname === /items/<name>`), Collection rows (`/collections/<id>`, bar keyed to primary type) and "View all collections" (`/collections`), each with `aria-current="page"`. Brand row is now a `<Link href="/dashboard">` (replaces the removed back links; `justify-center` when collapsed). **(Goal 2) GitHub on `/register`** — new `src/components/auth/OAuthSection.tsx` (the "or" divider + GitHub `<Button>`, own `redirecting` state, optional `callbackUrl`/`disabled`); `SignInForm` uses it (its `pending` union collapsed to a plain `boolean`), `RegisterForm` return wrapped in `<div className="space-y-4">` with the "Already have an account?" link moved outside the `<form>` and `<OAuthSection label="Sign up with GitHub" />` in a `<div className="pt-4">` (extra spacing below "Create account" per follow-up — ~32px to the divider vs 16). No page-file / backend change. **(Goal 4, scoped)** — `settings` `<h1>` `text-xl`→`text-2xl`; `StatsSection` grid `grid-cols-2`→`grid-cols-1 sm:grid-cols-2 lg:grid-cols-4` (no "Favorite colle…" truncation at 390px); `AuthField` error `<p>` gets `id`+`role="alert"` and `cloneElement`s the control with `aria-describedby` when an error shows; `ActionButton` gains an `ariaLabel` prop and the item-drawer `Trash2` button now passes `label="Delete"` (gives it an accessible name it lacked, matches Edit, widens it from the close X). **Deferred:** global touch-target bump on coarse pointers; sidebar "Recent" rows still only a colour dot (no count/label); container-width unification (`favorites` `max-w-4xl`, forms `max-w-2xl`); low-pri items (small-text contrast pass, `Hero` raw `<a>` vs `<Link>`, `motion-safe` gate on `scroll-behavior`, drawer `<pre>` text-size); `SidebarUser` Profile/Settings active state; the long-standing `ListPageShell`/`BackLink`/`pluralize()` extraction. **Checks:** `npm run lint` clean (only the pre-existing `prototypes/homepage/script.js` warning), `npm run build` green (all routes at the same URLs — clear `.next` first or the build trips on a stale `src/app/profile/page.js` type ref), `npm run test` **403 pass / 44 files** (no new suites — all changes are components/pages/layout, outside the `src/{actions,lib}` scope). Browser-verified (Playwright, live dev server, demo session + signed-out): `/items/snippet`, `/collections`, `/collections/[id]`, `/settings`, `/profile`, `/favorites` all render inside the shell with the current Types/Collection row highlighted + accent bar; `/register` (desktop + 390px) shows the "or" + "Sign up with GitHub" block with no overflow and the extra top spacing; mobile dashboard stats stack 1-col in full; the item drawer shows a labelled "Delete". (Note: `mcp__playwright__browser_click` is flaky on the item cards' `absolute inset-0` stretched-link overlay — the drawer opens fine via a real DOM `.click()`; not a regression.) **Committed** on `feature/ui-layout-fixes` → merged `--no-ff` to `main`, branch deleted. **Deliberately excluded** from the commit (unrelated, pre-existing, still uncommitted on `main`): `.env.example`, `prisma/seed.ts`, `scripts/test-db.ts`, `src/app/register/page.tsx`, `src/app/sign-in/page.tsx` (the auth-redirect-guard change — my Goal 2 work only touched the form *components*), `src/auth.config.ts`, `src/proxy.ts`; untracked `.claude/agents/ui-reviewer.md`, `scripts/reset-oauth-user.ts`.
 - Actions Folder DRY Pass — Started from a duplication scan of `src/actions/`; shipped the **high + medium** findings (skipped the low-impact `console.error("<fn> action failed", …)` string — absorbed into the wrappers anyway — and `auth.ts`, 16 lines with nothing to share). **New shared module `src/lib/actions/`** (all pure/server, `src/lib/**` so the `*.test.ts` are auto-collected): **`types.ts`** — `ActionResult<T>` (the `{ success: true; data } | { success: false; error; fieldErrors? }` union that was defined **verbatim** in `ai.ts` / `items.ts` / `editor-preferences.ts`; grep confirmed nothing imports it *as a type* — components read the result structurally — so the move is a pure dedup). **`guards.ts`** — `type Guarded<T> = { ok: true; value: T } | { ok: false; result: ActionResult<never> }` and three helpers: `requireUser(signedOutMessage = "You must be signed in.")` → `auth()` then `Guarded<{ id: string; isPro: boolean }>` (`isPro` `Boolean(...)`-coerced; message is a param because `items.ts` uses call-site copy — "to create items" / "to edit items" / "to update items" / "to delete items", each pinned by a test); `parseInput(schema, input, message = "Please fix the highlighted fields.")` → `schema.safeParse` then `Guarded<T>`, the failure branch being the shared `{ success: false, error: message, fieldErrors }` shape (`fieldErrors` `as Record<string, string[]>` — Zod v4's `flatten().fieldErrors` is `{ [k]?: string[] }`, which the original assignments happened to compile against but the extracted generic form does not); `runMutation(actionName, op, { notFound, failed })` → `try { const data = await op(); return data ? { success: true, data } : { success: false, error: notFound } } catch { console.error(\`${actionName} action failed\`, e); return { success: false, error: failed } }`. `op` returns the **final payload** (not the raw query result) so `deleteItem` does `async () => (await deleteItemQuery(itemId)) && { id: itemId }`. **`ai-action.ts`** — `runAiAction(input, config)` = the whole 5-gate preamble the four AI actions repeated (`requireUser` → `!isPro` → `!isAiConfigured()` → `checkUserRateLimit({ name: config.rateLimitName, userId, limit: AI_RATE_LIMIT.limit, window: AI_RATE_LIMIT.window })` → `parseInput`) then `try { const data = await config.run(parsed.value); return data == null ? { success: false, error: config.emptyError ?? config.failError } : { success: true, data } } catch { console.error(...); return { success: false, error: config.failError } }`. `config = { actionName, rateLimitName, proMessage, schema, run, emptyError?, failError }`; `run(data)` returns `TOut | null` (`null` ⇒ "model gave nothing usable"). **Rewrites**: `src/actions/ai.ts` **285 → 131 lines** — the four exports (`generateAutoTags` / `generateItemDescription` / `explainCode` / `optimizePrompt`) are now ~15-line `runAiAction(input, { … })` configs; the four `PRO_*_MESSAGE` consts and every user-facing string kept exactly; `run` closures shape the payload (`{ tags }`; `description ? { description } : null`; `explanation ? { explanation } : null`; `result.optimized ? result : null`). `src/actions/items.ts` **180 → 145** — a tiny local `requireItemId(itemId): ActionResult<never> | null` dedups the `typeof itemId !== "string" || itemId.length === 0` guard (3×); `createItem` / `updateItem` keep their Zod + Stripe-limit / file-gate steps but hand the tail to `runMutation`; `setItemFavorite` / `deleteItem` are now `requireUser` + `requireItemId` (+ the boolean check) + `runMutation`. `src/actions/editor-preferences.ts` **51 → 41** — `requireUser("You must be signed in to update editor preferences.")` + `parseInput(editorPreferencesSchema, input, "Please choose valid editor settings.")`; keeps its own `try/catch` (no "not found" case, so `runMutation` doesn't fit). **Tests +23** → `npm run test` **423 pass / 46 files** (was 403 / 44): new `src/lib/actions/guards.test.ts` (13 — `requireUser` no-session / no-id / happy / `isPro` default-false; `parseInput` pass-through + normalise / standard field-error shape / custom message; `runMutation` truthy→data / null→notFound / false→notFound / throw→`console.error`+failed) and `src/lib/actions/ai-action.test.ts` (10 — each gate short-circuits before `run`, rate-limiter called with the right bucket/`AI_RATE_LIMIT`, invalid payload → fieldErrors, happy path passes normalised data + wraps result, `null`→`emptyError` / `null`+no-`emptyError`→`failError`, throw→`console.error`+`failError`). The **unchanged** `ai.test.ts` / `items.test.ts` / `editor-preferences.test.ts` suites (which assert every error string, gate order and return shape exactly) pass untouched — behaviour is provably identical. `npm run lint` clean (only the pre-existing `prototypes/homepage/script.js` unused-`i` warning); `npm run build` green (clear `.next` first — a stale `src/app/profile/page.js` type ref otherwise trips it — first build also caught the `fieldErrors` `Record` mismatch above, fixed with the cast), all routes unchanged. **Committed** on `feature/actions-dry-pass` → merged `--no-ff` to `main`, branch deleted. **Deliberately excluded** from the commit (unrelated, pre-existing, still uncommitted on `main`): `.env.example`, `prisma/seed.ts`, `scripts/test-db.ts`, `src/app/{register,sign-in}/page.tsx`, `src/auth.config.ts`, `src/proxy.ts`; untracked `.claude/agents/{refactor-scanner,ui-reviewer}.md`, `scripts/reset-oauth-user.ts`.
+- Components Folder Refactor Scan (planning only — no code) — Full read of `src/components/**` (43 files, ~8.4k lines) for (A) large components to split + (B) duplicate JSX/handlers. Written up as a **3-tier, individually-shippable plan** committed to `context/current-feature.md` (commit `docs(context): component folder refactor scan …`), then filed here. **Tier 1 (high payoff, hottest files):** (1) **`CodeEditor.tsx` 290 + `MarkdownEditor.tsx` 382** share ~120 lines of near-verbatim JSX + 4 twin helpers → extract `src/components/items/editor/` with `<EditorShell>` (dark `border-[#333] bg-[#1e1e1e]` wrapper + `bg-[#2d2d2d]/#252526` header w/ left+right slots), `<EditorTab>` (merge `TabButton`≈`HeaderTab`, differ only `py-1` vs `py-0.5`), `<EditorCopyButton>` (dark `text-white/50` Copy w/ Check-swap, byte-identical in both — a 3rd card-styled copy is `CopyButton.tsx`), `<AiEditorButton>` (Pro-gated `Sparkles`/`Loader2` ↔ `Crown` span — "Explain"/"Optimize" = same control, different verb+handler), `<MarkdownPanel>` (`markdown-preview` + `ReactMarkdown`/`remarkGfm`, appears 3×), shared `MIN_HEIGHT`/`MAX_HEIGHT` + grow-clamp logic, `useAiEditorPanel()` (the `suggestion|explanation`+`pending`+tab-swap+`toast` machine — same shape in `handleOptimize`/`handleExplain`). (2) **`NewItemDialog.tsx` 352 + `ItemEditForm.tsx` 202** — Title/Description(+`DescribeButton`)/Language(`LanguageSelect`)/Content(`ItemContentField`)/URL/Tags(+`SuggestTagsButton`)/`CollectionPicker` stack ~90% identical (tag-append closure `prev.trim() ? \`…, ${tag}\` : tag` byte-identical) → `<ItemFields>` on `itemTypeFields(type)` + `{ values, set, fieldErrors }`; split `<TypePicker>` pill row (~55 lines) out of `NewItemDialog`. (3) **`NewCollectionDialog.tsx` 153 + `EditCollectionDialog.tsx` 170** ~90% identical → one `<CollectionFormDialog mode>` or `<CollectionFields>` + `useCollectionForm(mode, collection?)` (~320 → ~120). (4) **`ItemDrawer.tsx` 429** god component → `<ItemDrawerActions>` (the `ActionButton` row), `<ItemDrawerBody>` (read view ~130 lines), `<ItemContentView>` (the `isCodeItemType ? CodeEditor : isMarkdownItemType ? MarkdownEditor : <pre>` switch, **also** in `ItemContentField.tsx` — share via `readOnly` prop), `useItemDrawerActions(detail, summary, onSaved, onDeleted)` (favorite/apply-optimized/delete handlers + ~9 `useState`), fold delete-confirm into `<ConfirmDeleteDialog>`. **Tier 2 (clear dedup, small blast radius):** (5) `useItemDrawer()` + 8-prop `<ItemDrawer>` spread verbatim in `ItemBrowser`/`CommandPalette`/`FavoritesList` → `drawer={drawer}` prop or `<ItemDrawerHost>`. (6) `<ConfirmDeleteDialog>` — `ItemDrawer` delete `AlertDialog` ≡ `DeleteCollectionDialog` (same destructive `AlertDialogAction` class + `data-variant` + `preventDefault` + `"Deleting…"`). (7) `postJsonError(status, data, fallback)` in `src/lib/post-json.ts` — the `status === 0 ? "Network error…" : (data?.error ?? "Could not …")` ternary in `useCollectionFavorite`/`DeleteCollectionDialog`/`NewCollectionDialog`/`EditCollectionDialog`/`RegisterForm`/`ResetPasswordForm`/`ChangePasswordForm` (+ variant in `BillingSection`). (8) `selectClass` → `item-form/field-styles.ts` (defined twice: `EditorPreferencesForm` `h-8`, `LanguageSelect` `h-9`; ideally a `<Select>` primitive). (9) `useAiAction(action)` + `<AiActionButton>` — `SuggestTagsButton` ≡ `DescribeButton` (`useState(pending)` → `if (!isPro) return null` → guarded async + `toast.error` → ghost `<Button>` w/ `Loader2`/`Sparkles` + "…ing"); same shape as editor Explain/Optimize. (10) `toItemDetailJson(data)` next to `item-detail-json.ts` — the `{...data, createdAt/updatedAt: new Date(...).toISOString()}` remap in `ItemDrawer` ×3 + `ItemEditForm` ×1. (11) `<CollectionMutationDialogs>` — `CollectionActionsMenu` ≡ `CollectionDetailActions` tail (`<EditCollectionDialog>`+`<DeleteCollectionDialog>`+`editOpen`/`deleteOpen`+`useCollectionFavorite`; only `onDeleted` differs). **Tier 3 (card/primitive tidy, cosmetic risk):** (12) `<ItemFlags item>` — Pin+Star badge pair verbatim in `ItemCard`/`ItemRow`/`ImageCard`/`FileRow`. (13) `<IconTile Icon size>` — `size-9 … rounded-lg bg-muted` + `<Icon size-4>` in `ItemCard`/`ItemRow`/`FileRow`/`ItemDrawer`(`size-10`). (14) `<Chip>`/`<ChipList>` — `rounded bg-muted px-1.5 py-0.5 text-[10px]/text-xs text-muted-foreground` pills in `ItemCard`/`ItemRow`/`ItemDrawer`(tags+collections)/`FavoritesList`. (15) `ItemCard` ↔ `ItemRow` — structurally identical, could be one `dense`-prop component (lower confidence). (16) migrate `SignInForm`/`ResetPasswordForm`/`ForgotPasswordForm` off hand-rolled fields to `<AuthField>`; add `<SubmitButton pending pendingLabel>` (the `w-full` submit is in all 4 auth forms + `ChangePasswordForm`) + `<AuthFormFooter>`. (17) `EditorPreferencesForm.tsx` — 5 near-identical `<Row>` blocks → data map; `Toggle` + the `aria-pressed` segmented toggles in `BillingSection`/`PricingPlans` are 3 hand-rolled switches → `<Switch>`/`<SegmentedToggle>`. (18) `Sidebar.tsx` 275 — move inline `SectionHeader`/`CollectionGroup`/`ActiveBar` into `src/components/dashboard/sidebar/` + extract `<TypeRow>`. (19) `ChaosOrderFlow.tsx` 277 — split `DashboardPreview` + `useChaosPhysics` (low priority, isolated). (20) `FileUpload.tsx` 237 — not fully audited; likely `<DropZone>` + `<UploadProgress>` + hook (re-read before scoping). **Notes for the eventual implementer:** no behaviour change intended anywhere → structure only; Vitest covers `src/{actions,lib}` only so component splits get no unit coverage — browser-verify each (dashboard lists, item drawer read+edit+delete, the three form dialogs, `/favorites` + `/collections/[id]` + `/settings`, both auth forms); non-item-specific primitives (`<ConfirmDeleteDialog>`, `<Switch>`, `<Select>`, `<Chip>`) go in `src/components/ui/`; keep separate from the `src/lib/actions/` work already on `main`. Full tier list with per-item detail is preserved in the `docs(context): component folder refactor scan …` commit. **Nothing implemented** — this entry is the scan output; a future session picks a tier and runs `/feature start`.
